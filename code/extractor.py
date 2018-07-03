@@ -38,7 +38,8 @@ class Extractor(object):
         :return:
         """
         # load data set from disk
-        data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_pt'), self.config.get('FILE_NAME', 'cikm_english_train_20180516_csv'))).fillna(value="")
+        data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_pt'), data_set_name)).fillna(value="")
+        print(type(data))
         begin_id = int(1. * len(data) / part_num * part_id)
         end_id = int(1. * len(data) / part_num * (part_id + 1))
         print("Get sample" ,end_id - begin_id)
@@ -61,6 +62,7 @@ class Extractor(object):
         # extract feature
         for index, row in data[begin_id:end_id].iterrows():
             feature = self.extract_row(row)
+            print(feature)
             Feature.save_feature(feature, feature_file)
         feature_file.close()
 
