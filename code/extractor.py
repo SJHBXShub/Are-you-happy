@@ -62,7 +62,7 @@ class Extractor(object):
         # extract feature
         for index, row in data[begin_id:end_id].iterrows():
             feature = self.extract_row(row)
-            print(feature)
+            #print(feature)
             Feature.save_feature(feature, feature_file)
         feature_file.close()
 

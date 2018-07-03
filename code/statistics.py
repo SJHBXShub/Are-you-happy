@@ -212,7 +212,7 @@ class TFIDF(Extractor):
 def demo():
     #Need_change
     config_fp = '../conf/featwheel.conf'
-    TFIDF(config_fp).extract('cikm_english_train_20180516.csv')
+    Length(config_fp).extract('cikm_english_train_20180516.csv')
 
 
 if __name__ == '__main__':
