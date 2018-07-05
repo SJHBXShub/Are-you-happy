@@ -14,7 +14,6 @@ from feature import Feature
 class Extractor(object):
 
     def __init__(self, config_fp):
-        print("wo shi initiala")
         # set feature name
         self.feature_name = self.__class__.__name__
         # set feature file path
@@ -38,8 +37,7 @@ class Extractor(object):
         :return:
         """
         # load data set from disk
-        data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_pt'), data_set_name)).fillna(value="")
-        print(type(data))
+        data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), data_set_name)).fillna(value="")
         begin_id = int(1. * len(data) / part_num * part_id)
         end_id = int(1. * len(data) / part_num * (part_id + 1))
         print("Get sample" ,end_id - begin_id)
@@ -61,8 +59,9 @@ class Extractor(object):
         feature_file.write('%d %d\n' % (end_id - begin_id, int(self.get_feature_num())))
         # extract feature
         for index, row in data[begin_id:end_id].iterrows():
+            if index % 100 == 0:
+                print(index)
             feature = self.extract_row(row)
-            #print(feature)
             Feature.save_feature(feature, feature_file)
         feature_file.close()
 

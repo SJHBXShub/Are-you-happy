@@ -3,11 +3,11 @@ import configparser as ConfigParser
 import pandas as pd
 
 def saveLabel(data_set_name):
-    config_fp = 'C:/Users/jieyang/Desktop/GIT_code/kaggle-quora-question-pairs/conf/featwheel.conf'
+    config_fp = '../conf/featwheel.conf'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
-    data = pd.read_csv('%s/%s.csv' % (config.get('DIRECTORY', 'source_pt'), data_set_name)).fillna(value="")
-    labels_pt = '%s/%s.label' % (config.get('DIRECTORY', 'label_pt'),config.get('MODEL', 'offline_rawset_name'))
+    data = pd.read_csv('%s/%s' % (config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), data_set_name)).fillna(value="")
+    labels_pt = '%s/%s.label' % (config.get('DIRECTORY', 'label_pt'),config.get('FEATURE', 'offline_rawset_name'))
 
     labels = []
     for index, row in data.iterrows():
@@ -17,7 +17,8 @@ def saveLabel(data_set_name):
     DataUtil.save_vector(labels_pt,labels,'w')
 
 if __name__ == '__main__':
-    saveLabel('train')
+    precess_file_name = 'preprocessing_train_merge.csv'
+    saveLabel(precess_file_name)
 
 
 

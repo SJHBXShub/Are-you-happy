@@ -187,13 +187,30 @@ class NumDiffSentence():
                 max_num = dul_num[row]
         return max_num
 
+class SpanishChar():       
+    def __init__(self, config_fp):
+        print("wo shi initiala")
+        # load configuration file
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(config_fp)
+        self.data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_pt'), self.config.get('FILE_NAME', 'cikm_english_train_20180516_csv'))).fillna(value="")
 
+    def getAllDiffChar(self):
+        char_list = []
+        for index, row in self.data.iterrows():
+            spanish_sentence1 = str(row['spanish_sentence1'])
+            spanish_sentence2 = str(row['spanish_sentence2'])
+            sentence_sum = spanish_sentence1 + spanish_sentence2
+            for e in sentence_sum:
+                if e.lower() not in char_list:
+                    char_list.append(e.lower())
+        char_list.sort()
+        return char_list
 
 
 if __name__ == '__main__':
     config_fp = 'C:/Users/jieyang/Desktop/GIT_code/kaggle-quora-question-pairs/conf/featwheel.conf'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
-    print(NumDiffSentence(config_fp).getDiffSentenceNum())
-    print(NumDiffSentence(config_fp).getAllSentenceNum())
-    print(NumDiffSentence(config_fp).getMaxSameSentenceNum())
+    print(SpanishChar(config_fp).getAllDiffChar())
+    print("I am ok")
