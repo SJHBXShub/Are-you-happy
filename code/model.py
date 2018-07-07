@@ -94,8 +94,8 @@ class XGB(Model):
         params['nthread'] = self.config.getint('XGB_PARAMS', 'nthread')
         #params['scale_pos_weight'] = float(self.config.get('XGB_PARAMS', 'scale_pos_weight'))
         params['gamma'] = float(self.config.get('XGB_PARAMS', 'gamma'))
-        #params['alpha'] = float(self.config.get('XGB_PARAMS', 'alpha'))
-        #params['lambda'] = float(self.config.get('XGB_PARAMS', 'lambda'))
+        params['alpha'] = float(self.config.get('XGB_PARAMS', 'alpha'))
+        params['lambda'] = float(self.config.get('XGB_PARAMS', 'lambda'))
         params['verbose_eval'] = self.config.getint('XGB_PARAMS', 'verbose_eval')
 
         return params

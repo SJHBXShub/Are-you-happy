@@ -34,8 +34,8 @@ class Runner(object):
         :return: feature matrix, labels, balanced indexs
         """
         # balance the data set
-        #balanced_indexs = Feature.balance_index(indexs, labels, positive_rate)
-        balanced_indexs = indexs
+        balanced_indexs = Feature.balance_index(indexs, labels, positive_rate)
+        #balanced_indexs = indexs
         # sample labels
         labels = [labels[index] for index in balanced_indexs]
         # sample features
@@ -199,7 +199,7 @@ class SingleExec(Runner):
         p = model.predict(online_features)
         online_preds_fp = '%s/se_online.%s.pred' % (self.config.get('DIRECTORY', 'pred_pt'),
                                                     self.config.get('FEATURE', 'online_rawset_name'))
-        
+
         DataUtil.save_vector(online_preds_fp, p, 'w')
 
 '''
