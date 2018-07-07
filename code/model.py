@@ -92,7 +92,7 @@ class XGB(Model):
         params['num_round'] = self.config.getint('XGB_PARAMS', 'num_round')
         params['early_stop'] = self.config.getint('XGB_PARAMS', 'early_stop')
         params['nthread'] = self.config.getint('XGB_PARAMS', 'nthread')
-        params['scale_pos_weight'] = float(self.config.get('XGB_PARAMS', 'scale_pos_weight'))
+        #params['scale_pos_weight'] = float(self.config.get('XGB_PARAMS', 'scale_pos_weight'))
         params['gamma'] = float(self.config.get('XGB_PARAMS', 'gamma'))
         #params['alpha'] = float(self.config.get('XGB_PARAMS', 'alpha'))
         #params['lambda'] = float(self.config.get('XGB_PARAMS', 'lambda'))
