@@ -4,7 +4,8 @@
 # @Author  : HouJP
 # @Email   : houjp1992@gmail.com
 
-
+import sys
+from imp import reload
 import math
 import chardet
 import nltk
@@ -23,6 +24,7 @@ from preprocessor import TextPreProcessor
 
 stops = set(stopwords.words("spanish"))
 snowball_stemmer = SnowballStemmer('spanish')
+reload(sys) 
 
 class Not(Extractor):
     def __init__(self, config_fp):
@@ -473,7 +475,7 @@ class PowerfulWordDoubleSide(Extractor):
         pword = filter(lambda x: x[1][0] * x[1][5] >= thresh_num, pword)
         pword_sort = sorted(pword, key=lambda d: d[1][6], reverse=True)
         pword_dside.extend(map(lambda x: x[0], filter(lambda x: x[1][6] >= thresh_rate, pword_sort)))
-        LogUtil.log('INFO', 'Double side power words(%d): %s' % (len(pword_dside), str(pword_dside)))
+        #LogUtil.log('INFO', 'Double side power words(%d): %s' % (len(pword_dside), str(pword_dside)))
         return pword_dside
 
     def extract_row(self, row):
@@ -587,15 +589,14 @@ class PowerfulWordOneSideRate(Extractor):
 def demo():
     #Need_change
     config_fp = '../conf/featwheel.conf'
-    precess_file_name = 'preprocessing_train_merge.csv'
+    precess_file_name = 'preprocessing_test.csv'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
     devel_pt = config.get('DIRECTORY', 'devel_pt')
     fp_powerword = '%s/%s.txt' % (devel_pt,'words_power')
     begin_index = int(config.get('FEATURE', 'begin_index'))
     end_index = int(config.get('FEATURE', 'end_index'))
-
-    
+    '''
     Not(config_fp).extract(precess_file_name)
     WordMatchShare(config_fp).extract(precess_file_name)
     TFIDFWordMatchShare(config_fp).extract(precess_file_name)
@@ -607,13 +608,16 @@ def demo():
     NgramDiceDistance(config_fp).extract(precess_file_name)
     EnCharCount(config_fp).extract(precess_file_name)
     DulNum(config_fp).extract(precess_file_name)
+    '''
     NgramDistance(config_fp,'edit_dist').extract(precess_file_name)
+    '''
     result = PowerfulWord.generate_powerful_word(config_fp,begin_index,end_index)
     PowerfulWord.save_powerful_word(result,fp_powerword)
     PowerfulWordDoubleSide(config_fp).extract(precess_file_name)
     PowerfulWordOneSide(config_fp).extract(precess_file_name)
     PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
     PowerfulWordOneSideRate(config_fp).extract(precess_file_name)
+    '''
     
 
 if __name__ == '__main__':
