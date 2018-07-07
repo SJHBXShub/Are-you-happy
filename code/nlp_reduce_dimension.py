@@ -6,18 +6,20 @@
 
 from extractor import Extractor
 
-from statistics import TFIDF
+from statistics import TFIDF, TFCount
 from sklearn.decomposition import TruncatedSVD
-
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 from sklearn.decomposition import NMF, LatentDirichletAllocation
-from sklearn.metrics.pairwise import  cosine_similarity
+from sklearn.metrics.pairwise import cosine_similarity
 
-#nmf
-class nmfDecomposition(Extractor):
-    def __init__(self, config_fp,  n_components=50):
+
+# nmf model
+class NMFDecomposition(Extractor):
+    def __init__(self, config_fp,  n_components=50, tf_idf=None, tf_idf_result=None):
         Extractor.__init__(self, config_fp)
         self.n_components = n_components
-        self.tfidf,self.tf_idf_result = TFIDF(config_fp).init_tfidf()
+        self.tf_idf = tf_idf
+        self.tf_idf_result = tf_idf_result
         self.nmf_model = self.init_nmf()
 
     def init_nmf(self):
@@ -29,19 +31,19 @@ class nmfDecomposition(Extractor):
         return nmf
 
     def extract_row(self, row):
-        #get q1 & q2
+        # get q1 & q2
         q1 = str(row['spanish_sentence1'])
         q2 = str(row['spanish_sentence2'])
 
-        #get tf idf of q1 & q2
-        tf1 = self.tfidf.transform([str(q1)])
-        tf2 = self.tfidf.transform([str(q2)])
+        # get tf idf of q1 & q2
+        tf1 = self.tf_idf.transform([str(q1)])
+        tf2 = self.tf_idf.transform([str(q2)])
 
-        #process nmf on q1 & q2
+        # process nmf on q1 & q2
         nmf1 = self.nmf_model.transform(tf1)
         nmf2 = self.nmf_model.transform(tf2)
 
-        #cal similarity of q1 & q2
+        # cal similarity of q1 & q2
         # cosine_similarity
         fs = list()
         # print(cosine_similarity(nmf1, nmf2, dense_output=True)[0])
@@ -49,12 +51,15 @@ class nmfDecomposition(Extractor):
         return fs
     def get_feature_num(self):
         return 1
-#lda
-class ldaDecomposition(Extractor):
-    def __init__(self, config_fp, n_components=50):
+
+
+# lda model
+class LDADecomposition(Extractor):
+    def __init__(self, config_fp, n_components=50, tf=None, tf_result=None):
+        # Use tf (raw term count) features for LDA.
         Extractor.__init__(self, config_fp)
         self.n_components = n_components
-        self.tfidf,self.tf_idf_result = TFIDF(config_fp).init_tfidf()
+        self.tf,self.tf_result = tf, tf_result
         self.lda_model = self.init_lda()
 
     def init_lda(self):
@@ -63,38 +68,39 @@ class ldaDecomposition(Extractor):
                                         # learning_offset=50.,
                                         # random_state=0)
         print('----lda-------')
-        lda.fit(self.tf_idf_result)
+        lda.fit(self.tf_result)
         # lda_result = svd.transform(self.tf_idf_result)
         return lda
 
     def extract_row(self, row):
-        #get q1 & q2
+        # get q1 & q2
         q1 = str(row['spanish_sentence1'])
         q2 = str(row['spanish_sentence2'])
 
-        #get tf idf of q1 & q2
-        tf1 = self.tfidf.transform([str(q1)])
-        tf2 = self.tfidf.transform([str(q2)])
+        # get tf idf of q1 & q2
+        tf1 = self.tf.transform([str(q1)])
+        tf2 = self.tf.transform([str(q2)])
 
-        #process svd on q1 & q2
+        # process svd on q1 & q2
         lda1 = self.lda_model.transform(tf1)
         lda2 = self.lda_model.transform(tf2)
 
-        #cal similarity of q1 & q2
+        # cal similarity of q1 & q2
         # cosine_similarity
         fs = list()
         # print(cosine_similarity(lda1, lda2, dense_output=True)[0])
         fs.append(cosine_similarity(lda1, lda2, dense_output=True)[0])
         return fs
+
     def get_feature_num(self):
         return 1
 
 
-class svdDecomposition(Extractor):
-    def __init__(self, config_fp, n_components = 50):
+class SVDDecomposition(Extractor):
+    def __init__(self, config_fp, n_components = 50, tf_idf=None, tf_idf_result=None):
         Extractor.__init__(self, config_fp)
         self.n_components = n_components
-        self.tfidf, self.tf_idf_result = TFIDF(config_fp).init_tfidf()
+        self.tf_idf, self.tf_idf_result = tf_idf, tf_idf_result
         self.svd_model = self.init_svd()
 
     def init_svd(self):
@@ -105,19 +111,19 @@ class svdDecomposition(Extractor):
         return svd
 
     def extract_row(self, row):
-        #get q1 & q2
+        # get q1 & q2
         q1 = str(row['spanish_sentence1'])
         q2 = str(row['spanish_sentence2'])
 
-        #get tf idf of q1 & q2
-        tf1 = self.tfidf.transform([str(q1)])
-        tf2 = self.tfidf.transform([str(q2)])
+        # get tf idf of q1 & q2
+        tf1 = self.tf_idf.transform([str(q1)])
+        tf2 = self.tf_idf.transform([str(q2)])
 
-        #process svd on q1 & q2
+        # process svd on q1 & q2
         svd1 = self.svd_model.transform(tf1)
         svd2 = self.svd_model.transform(tf2)
 
-        #cal similarity of q1 & q2
+        # cal similarity of q1 & q2
         # cosine_similarity
         fs = list()
         # print(cosine_similarity(svd1, svd2, dense_output=True)[0])
@@ -127,13 +133,26 @@ class svdDecomposition(Extractor):
         return 1
 
 
+def print_top_words(model, feature_names, n_top_words):
+    for topic_idx, topic in enumerate(model.components_):
+        message = "Topic #%d: " % topic_idx
+        message += " ".join([feature_names[i]
+                             for i in topic.argsort()[:-n_top_words - 1:-1]])
+        print(message)
+    print()
+
+
 def demo(n_components=50):
     #Need_change
     config_fp = '../conf/featwheel.conf'
-
-    # svdDecomposition(config_fp, n_components=n_components).extract('cikm_english_train_20180516.csv')
-    nmfDecomposition(config_fp, n_components=n_components).extract('cikm_english_train_20180516.csv')
-    ldaDecomposition(config_fp, n_components=n_components).extract('cikm_english_train_20180516.csv')
+    TFIDF_model = TFIDF(config_fp)
+    tf_idf, tf_idf_result = TFIDF_model.tfidf, TFIDF_model.tfidf_result
+    print("Extracting tf features for LDA...")
+    TFCount_model = TFCount(config_fp)
+    tf, tf_result = TFCount_model.tf, TFCount_model.tf_result
+    # svdDecomposition(config_fp, n_components=n_components, tf_idf_result).extract('preprocessing_train_merge.csv')
+    # NMFDecomposition(config_fp, n_components=n_components, tf_idf=tf_idf, tf_idf_result=tf_idf_result).extract('preprocessing_train_merge.csv')
+    LDADecomposition(config_fp, n_components=n_components, tf=tf, tf_result=tf_result).extract('preprocessing_train_merge.csv')
 
 
 if __name__ == '__main__':
