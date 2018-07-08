@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from nltk.corpus import stopwords
 from nltk.stem import SnowballStemmer
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
 import configparser as ConfigParser
 
 from utils import NgramUtil, DistanceUtil, LogUtil, MathUtil
@@ -24,7 +24,7 @@ from preprocessor import TextPreProcessor
 
 stops = set(stopwords.words("spanish"))
 snowball_stemmer = SnowballStemmer('spanish')
-reload(sys) 
+reload(sys)
 
 class Not(Extractor):
     def __init__(self, config_fp):
@@ -64,6 +64,7 @@ class Not(Extractor):
 
         return fs
 
+
 class WordMatchShare(Extractor):
 
     def extract_row(self, row):
@@ -85,6 +86,29 @@ class WordMatchShare(Extractor):
 
     def get_feature_num(self):
         return 1
+
+
+class TFCount(Extractor):
+
+    def __init__(self, config):
+        Extractor.__init__(self, config)
+        self.conf = ConfigParser.ConfigParser()
+        self.conf.read(config)
+        self.tf, self.tf_result = self.init_tf()
+
+    def init_tf(self):
+        train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")
+        test_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_test_csv'))).fillna(value="")
+
+        tf_vectorizer = CountVectorizer(max_df=0.95, min_df=2,
+                                        stop_words=None)
+        tf_txt = pd.Series(
+            train_data['spanish_sentence1'].tolist() + train_data['spanish_sentence2'].tolist() + test_data['spanish_sentence1'].tolist() +
+            test_data['spanish_sentence2'].tolist()).astype(str)
+        tf_result = tf_vectorizer.fit_transform(tf_txt)
+        LogUtil.log("INFO", "init TF done ")
+        return tf_vectorizer, tf_result
+
 
 class TFIDFWordMatchShare(Extractor):
 
@@ -140,6 +164,7 @@ class TFIDFWordMatchShare(Extractor):
     def get_feature_num(self):
         return 1
 
+
 class Length(Extractor):
     def extract_row(self, row):
         q1 = str(row['spanish_sentence1'])
@@ -154,6 +179,7 @@ class Length(Extractor):
 
     def get_feature_num(self):
         return 4
+
 
 class LengthDiff(Extractor):
     def extract_row(self, row):
@@ -179,19 +205,19 @@ class LengthDiffRate(Extractor):
 class TFIDF(Extractor):
     def __init__(self, config_fp):
         Extractor.__init__(self, config_fp)
-        self.tfidf = self.init_tfidf()
+        self.tfidf,self.tfidf_result = self.init_tfidf()
 
     def init_tfidf(self):
-        train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")        
+        train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")
         test_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_test_csv'))).fillna(value="")
 
         tfidf = TfidfVectorizer(stop_words='english', ngram_range=(1, 1))
         tfidf_txt = pd.Series(
             train_data['spanish_sentence1'].tolist() + train_data['spanish_sentence2'].tolist() + test_data['spanish_sentence1'].tolist() +
             test_data['spanish_sentence2'].tolist()).astype(str)
-        tfidf.fit_transform(tfidf_txt)
+        tfidf_result = tfidf.fit_transform(tfidf_txt)
         LogUtil.log("INFO", "init tfidf done ")
-        return tfidf
+        return tfidf, tfidf_result
 
     def extract_row(self, row):
         q1 = str(row['spanish_sentence1'])
@@ -216,7 +242,7 @@ class DulNum(Extractor):
 
     def generate_dul_num(self):
         # load data set
-        train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")        
+        train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")
         test_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_test_csv'))).fillna(value="")
 
         dul_num = {}
@@ -327,6 +353,7 @@ class Distance(Extractor):
     def get_feature_num(self):
         return 2
 
+
 class NgramDistance(Distance):
 
     def extract_row(self, row):
@@ -382,7 +409,7 @@ class PowerfulWord(object):
         f.close()
         return powful_word
 
-    
+
     @staticmethod
     def generate_powerful_word(config, begin_indexs,end_index):
         """
@@ -391,7 +418,7 @@ class PowerfulWord(object):
         """
         conf = ConfigParser.ConfigParser()
         conf.read(config)
-        data = pd.read_csv('%s/%s' % (conf.get('DIRECTORY', 'csv_spanish_cleaning_pt'), conf.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")        
+        data = pd.read_csv('%s/%s' % (conf.get('DIRECTORY', 'csv_spanish_cleaning_pt'), conf.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")
         subset_indexs = []
         for i in range(begin_indexs,end_index):
             subset_indexs.append(i)
@@ -433,7 +460,7 @@ class PowerfulWord(object):
         for word in words_power:
             # 计算出现语句对比例
             words_power[word][1] /= len(subset_indexs)
-            # 计算正确语句对比例 
+            # 计算正确语句对比例
             if words_power[word][0] > 1e-6:
                 words_power[word][2] /= words_power[word][0]
             # 计算单侧语句对正确比例
@@ -477,7 +504,7 @@ class PowerfulWordDoubleSide(Extractor):
         pword = filter(lambda x: x[1][0] * x[1][5] >= thresh_num, pword)
         pword_sort = sorted(pword, key=lambda d: d[1][6], reverse=True)
         pword_dside.extend(map(lambda x: x[0], filter(lambda x: x[1][6] >= thresh_rate, pword_sort)))
-        #LogUtil.log('INFO', 'Double side power words(%d): %s' % (len(pword_dside), str(pword_dside)))
+        # LogUtil.log('INFO', 'Double side power words(%d): %s' % (len(pword_dside), str(pword_dside)))
         return pword_dside
 
     def extract_row(self, row):
@@ -509,7 +536,7 @@ class PowerfulWordOneSide(Extractor):
     def init_powerful_word_oside(pword, thresh_num, thresh_rate):
         pword_oside = []
         pword = filter(lambda x: x[1][0] * x[1][3] >= thresh_num, pword)
-        
+
         pword_oside.extend(
             map(lambda x: x[0], filter(lambda x: x[1][4] >= thresh_rate, pword)))
         LogUtil.log('INFO', 'One side power words(%d): %s' % (
@@ -624,7 +651,7 @@ def demo():
     PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
     PowerfulWordOneSideRate(config_fp).extract(precess_file_name)
     '''
-    
+
 
 if __name__ == '__main__':
     demo()
