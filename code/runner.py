@@ -34,8 +34,8 @@ class Runner(object):
         :return: feature matrix, labels, balanced indexs
         """
         # balance the data set
-        #balanced_indexs = Feature.balance_index(indexs, labels, positive_rate)
-        balanced_indexs = indexs
+        balanced_indexs = Feature.balance_index(indexs, labels, positive_rate)
+        #balanced_indexs = indexs
         # sample labels
         labels = [labels[index] for index in balanced_indexs]
         # sample features
@@ -155,7 +155,6 @@ class SingleExec(Runner):
 
         model = Model.new(self.config.get('MODEL', 'model_name'), self.config)
         model_fp = self.config.get('DIRECTORY', 'model_pt') + '/se.%s.model' % self.config.get('MODEL', 'model_name')
-        #model.save(model_fp)
         offline_train_preds, offline_valid_preds, offline_test_preds = model.fit(offline_train_features,
                                                                                  offline_train_labels,
                                                                                  offline_valid_features,
@@ -172,6 +171,7 @@ class SingleExec(Runner):
         offline_test_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                 offline_test_labels,
                                                 offline_test_preds)
+        model.save(model_fp = model_fp)
         score_fp = '%s/%s.score' % (self.config.get('DIRECTORY', 'score_pt'), 'cv')
         score_file = open(score_fp, 'a')
         score_file.write('single_exec\ttrain:%s\tvalid:%s\ttest:%s\n' % (offline_train_score,
@@ -191,15 +191,16 @@ class SingleExec(Runner):
         # load feature matrix
         online_features = Feature.load_all(self.config.get('DIRECTORY', 'feature_pt'),
                                            self.config.get('FEATURE', 'feature_selected').split(),
-                                           self.config.get('MODEL', 'online_rawset_name'),
+                                           self.config.get('FEATURE', 'online_rawset_name'),
                                            self.config.get('FEATURE', 'will_save'))
         model = Model.new(self.config.get('MODEL', 'model_name'), self.config)
         model_fp = self.config.get('DIRECTORY', 'model_pt') + '/se.%s.model' % self.config.get('MODEL', 'model_name')
         model.load(model_fp)
         p = model.predict(online_features)
         online_preds_fp = '%s/se_online.%s.pred' % (self.config.get('DIRECTORY', 'pred_pt'),
-                                                    self.config.get('MODEL', 'online_test_rawset_name'))
-        DataUtil.save_vector(online_preds_fp, online_preds, 'w')
+                                                    self.config.get('FEATURE', 'online_rawset_name'))
+
+        DataUtil.save_vector(online_preds_fp, p, 'w')
 
 '''
 class CrossValidation(Runner):

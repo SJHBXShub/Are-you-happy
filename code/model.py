@@ -25,14 +25,14 @@ class Model(object):
         assert model_name in Model.valid_model_name, 'Wrong model_name(%s)' % model_name
         return eval(model_name)(config_fp)
 
-    def __init__(self, config_fp):
+    def __init__(self,config_fp):
         # load configuration file
         if isinstance(config_fp, str):
             self.config = ConfigParser.ConfigParser()
             self.config.read(config_fp)
         else:
             self.config = config_fp
-        self.model = None
+        self.model = None   
 
     def __load_parameters(self):
         assert False, 'Please override function: Model.__load_parameters()'
@@ -80,7 +80,7 @@ class XGB(Model):
 
     def __load_parameters(self):
         params = dict()
-        #params['booster'] = self.config.get('XGB_PARAMS', 'booster')
+        params['booster'] = self.config.get('XGB_PARAMS', 'booster')
         params['objective'] = self.config.get('XGB_PARAMS', 'objective')
         params['eval_metric'] = self.config.get('XGB_PARAMS', 'eval_metric')
         params['eta'] = float(self.config.get('XGB_PARAMS', 'eta'))
@@ -92,15 +92,16 @@ class XGB(Model):
         params['num_round'] = self.config.getint('XGB_PARAMS', 'num_round')
         params['early_stop'] = self.config.getint('XGB_PARAMS', 'early_stop')
         params['nthread'] = self.config.getint('XGB_PARAMS', 'nthread')
-        params['scale_pos_weight'] = float(self.config.get('XGB_PARAMS', 'scale_pos_weight'))
-        #params['gamma'] = float(self.config.get('XGB_PARAMS', 'gamma'))
-        #params['alpha'] = float(self.config.get('XGB_PARAMS', 'alpha'))
-        #params['lambda'] = float(self.config.get('XGB_PARAMS', 'lambda'))
+        #params['scale_pos_weight'] = float(self.config.get('XGB_PARAMS', 'scale_pos_weight'))
+        params['gamma'] = float(self.config.get('XGB_PARAMS', 'gamma'))
+        params['alpha'] = float(self.config.get('XGB_PARAMS', 'alpha'))
+        params['lambda'] = float(self.config.get('XGB_PARAMS', 'lambda'))
         params['verbose_eval'] = self.config.getint('XGB_PARAMS', 'verbose_eval')
 
         return params
 
     def save(self, model_fp):
+        #self.model = xgb.Booster(self.params)
         self.model.save_model(model_fp)
 
     def load(self, model_fp):
@@ -131,7 +132,8 @@ class XGB(Model):
         return train_preds, valid_preds, test_preds
 
     def predict(self, features, labels=None):
-        preds = self.model.predict(xgb.DMatrix(features, label=labels), ntree_limit=self.model.best_ntree_limit)
+        preds = self.model.predict(xgb.DMatrix(features, label=labels))
+        #, ntree_limit=self.model.best_ntree_limit
         return preds
 
     def sort_features(self):

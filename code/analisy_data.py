@@ -189,7 +189,6 @@ class NumDiffSentence():
 
 class SpanishChar():       
     def __init__(self, config_fp):
-        print("wo shi initiala")
         # load configuration file
         self.config = ConfigParser.ConfigParser()
         self.config.read(config_fp)
@@ -207,10 +206,30 @@ class SpanishChar():
         char_list.sort()
         return char_list
 
+class Rate():
+    def __init__(self, config_fp):
+        # load configuration file
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(config_fp)
+        self.data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_pt'), self.config.get('FILE_NAME', 'cikm_english_and_spanish_train_20180516_csv'))).fillna(value="")
+    
+
+    def getPostiveNumandRate(self):
+        postive_num = 0
+        total_num = 0
+        postive_rate = 0.0
+        for index, row in self.data.iterrows():
+            label = str(row['is_duplicateline'])
+            if label == '1':
+                postive_num += 1
+            total_num += 1
+        postive_rate = float(postive_num) / total_num
+        return total_num,postive_num, postive_rate
+
 
 if __name__ == '__main__':
-    config_fp = 'C:/Users/jieyang/Desktop/GIT_code/kaggle-quora-question-pairs/conf/featwheel.conf'
+    config_fp = '../conf/featwheel.conf'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
-    print(SpanishChar(config_fp).getAllDiffChar())
+    print(Rate(config_fp).getPostiveNumandRate())
     print("I am ok")

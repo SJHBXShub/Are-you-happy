@@ -59,8 +59,6 @@ class Extractor(object):
         feature_file.write('%d %d\n' % (end_id - begin_id, int(self.get_feature_num())))
         # extract feature
         for index, row in data[begin_id:end_id].iterrows():
-            if index % 100 == 0:
-                print(index)
             feature = self.extract_row(row)
             Feature.save_feature(feature, feature_file)
         feature_file.close()
