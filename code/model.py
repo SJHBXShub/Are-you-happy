@@ -9,16 +9,18 @@ import configparser as ConfigParser
 import os
 import time
 from os.path import isfile
-
+import operator
 import xgboost as xgb
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegression as skl_logistic_regression
+from sklearn.ensemble import RandomForestClassifier
+import pandas as pd
 
 from utils import LogUtil
 
 
 class Model(object):
-    valid_model_name = ['XGB']
+    valid_model_name = ['XGB','LogisticRegression','RandomForest']
 
     @staticmethod
     def new(model_name, config_fp):
@@ -125,7 +127,14 @@ class XGB(Model):
                                watchlist,
                                early_stopping_rounds=self.params['early_stop'],
                                verbose_eval=self.params['verbose_eval'])
-        #self.unlock()
+        importance = self.model.get_fscore()
+        importance = sorted(importance.items(), key=operator.itemgetter(1))
+        #print(importance)
+        df = pd.DataFrame(importance, columns=['feature', 'fscore'])
+        df['fscore'] = df['fscore'] / df['fscore'].sum()
+
+        df = pd.DataFrame(importance, columns=['feature', 'fscore'])
+        df['fscore'] = df['fscore'] / df['fscore'].sum()
         train_preds = self.model.predict(train_DMatrix, ntree_limit=self.model.best_ntree_limit)
         valid_preds = self.model.predict(valid_DMatrix, ntree_limit=self.model.best_ntree_limit)
         test_preds = self.model.predict(test_DMatrix, ntree_limit=self.model.best_ntree_limit)
@@ -202,9 +211,7 @@ class LogisticRegression(Model):
                                              solver=self.params['solver'],
                                              n_jobs=self.params['n_jobs'],
                                              multi_class=self.params['multi_class'])
-        self.lock()
         self.model.fit(X=train_fs, y=train_labels)
-        self.unlock()
         train_preds = self.model.predict_proba(train_fs)[:, 1]
         valid_preds = self.model.predict_proba(valid_fs)[:, 1]
         test_preds = self.model.predict_proba(test_fs)[:, 1]
@@ -214,6 +221,47 @@ class LogisticRegression(Model):
         preds = self.model.predict_proba(features)[:, 1]
         return preds
 
+class RandomForest(Model):
+    def __init__(self, config_fp):
+        Model.__init__(self, config_fp)
+        self.params = self.__load_parameters()
 
+    def __load_parameters(self):
+        params = dict() 
+        params['n_estimators'] = int(self.config.get('RANDOMFOREST', 'n_estimators'))
+        params['max_features'] = int(self.config.get('RANDOMFOREST', 'max_features'))
+        params['max_depth'] = int(self.config.get('RANDOMFOREST', 'max_depth'))
+        params['min_samples_split'] = int(self.config.get('RANDOMFOREST', 'min_samples_split'))
+        params['n_jobs'] = int(self.config.getint('RANDOMFOREST', 'n_jobs'))
+        params['random_state'] = int(self.config.getint('RANDOMFOREST', 'random_state'))
+        return params
+
+    def save(self, model_fp):
+        joblib.dump(self.model, model_fp)
+
+    def load(self, model_fp):
+        self.model = joblib.load(model_fp)
+
+    def fit(self,
+            train_fs, train_labels,
+            valid_fs, valid_labels,
+            test_fs, test_labels):
+    
+        self.model = RandomForestClassifier(n_estimators = self.params['n_estimators'], 
+                                            max_features = self.params['max_features'],
+                                            min_samples_split = self.params['min_samples_split'], 
+                                            random_state = self.params['random_state'], 
+                                            n_jobs = self.params['n_jobs'])
+
+        self.model.fit(X=train_fs, y=train_labels)
+        train_preds = self.model.predict_proba(train_fs)[:, 1]
+        valid_preds = self.model.predict_proba(valid_fs)[:, 1]
+        test_preds = self.model.predict_proba(test_fs)[:, 1]
+        return train_preds, valid_preds, test_preds
+
+    def predict(self, features, labels=None):
+        print(features)
+        preds = self.model.predict_proba(features)[:, 1]
+        return preds
 
 

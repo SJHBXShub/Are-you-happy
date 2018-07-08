@@ -12,7 +12,7 @@ from feature import Feature
 
 
 class Extractor(object):
-
+    
     def __init__(self, config_fp):
         # set feature name
         self.feature_name = self.__class__.__name__
@@ -21,6 +21,12 @@ class Extractor(object):
         # load configuration file
         self.config = ConfigParser.ConfigParser()
         self.config.read(config_fp)
+   
+    def getAllData(self,data_set_name,config_fp):
+        # load configuration file
+        self.config = ConfigParser.ConfigParser()
+        self.config.read(config_fp)
+        self.data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), data_set_name)).fillna(value="")
 
     def get_feature_num(self):
         assert False, 'Please override function: Extractor.get_feature_num()'
@@ -40,9 +46,6 @@ class Extractor(object):
         data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), data_set_name)).fillna(value="")
         begin_id = int(1. * len(data) / part_num * part_id)
         end_id = int(1. * len(data) / part_num * (part_id + 1))
-        print("Get sample" ,end_id - begin_id)
-        print("begin_id",begin_id)
-        print("end_id",end_id)
 
         # set feature file path
         feature_pt = self.config.get('DIRECTORY', 'feature_pt')
@@ -58,6 +61,7 @@ class Extractor(object):
         feature_file = open(self.data_feature_fp, 'w')
         feature_file.write('%d %d\n' % (end_id - begin_id, int(self.get_feature_num())))
         # extract feature
+
         for index, row in data[begin_id:end_id].iterrows():
             feature = self.extract_row(row)
             Feature.save_feature(feature, feature_file)

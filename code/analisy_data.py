@@ -1,5 +1,6 @@
 import configparser as ConfigParser
 import pandas as pd
+from extractor import Extractor
 
 class Sign():
     def __init__(self, config_fp):
@@ -206,13 +207,9 @@ class SpanishChar():
         char_list.sort()
         return char_list
 
-class Rate():
-    def __init__(self, config_fp):
-        # load configuration file
-        self.config = ConfigParser.ConfigParser()
-        self.config.read(config_fp)
-        self.data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_pt'), self.config.get('FILE_NAME', 'cikm_english_and_spanish_train_20180516_csv'))).fillna(value="")
-    
+class Rate(Extractor):
+    def __init__(self, config_fp,data_set_name):
+        self.getAllData(data_set_name,config_fp)
 
     def getPostiveNumandRate(self):
         postive_num = 0
@@ -229,7 +226,6 @@ class Rate():
 
 if __name__ == '__main__':
     config_fp = '../conf/featwheel.conf'
-    config = ConfigParser.ConfigParser()
-    config.read(config_fp)
-    print(Rate(config_fp).getPostiveNumandRate())
+    precess_file_name = 'preprocessing_test.csv'
+    print(Rate(config_fp,precess_file_name).getPostiveNumandRate())
     print("I am ok")

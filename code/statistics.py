@@ -405,6 +405,8 @@ class PowerfulWord(object):
             q1_words = set(q1_words)
             q2_words = set(q2_words)
             for word in all_words:
+                if word in stops:
+                    continue
                 if word not in words_power:
                     words_power[word] = [0. for i in range(7)]
                 # 计算出现语句对数量
@@ -444,7 +446,7 @@ class PowerfulWord(object):
                 words_power[word][6] /= words_power[word][5]
             # 计算双侧语句对比例
             words_power[word][5] /= words_power[word][0]
-        sorted_words_power = sorted(words_power.items(), key=lambda d: d[1][0], reverse=True)
+        sorted_words_power = sorted(words_power.items(), key=lambda d: d[1][6], reverse=True)
         LogUtil.log("INFO", "power words calculation done, len(words_power)=%d" % len(sorted_words_power))
         return sorted_words_power
 
@@ -540,19 +542,19 @@ class PowerfulWordDoubleSideRate(Extractor):
         self.pword_dict = dict(PowerfulWord.load_powerful_word(powerful_word_fp))
 
     def extract_row(self, row):
-        num_least = 300
-        rate = [1.0]
+        num_least = 20
+        power_double = 1.0
         q1_words = set(str(row['spanish_sentence1']).lower().split())
         q2_words = set(str(row['spanish_sentence2']).lower().split())
         share_words = list(q1_words.intersection(q2_words))
+        
         for word in share_words:
             if word not in self.pword_dict:
                 continue
             if self.pword_dict[word][0] * self.pword_dict[word][5] < num_least:
                 continue
-            rate[0] *= (1.0 - self.pword_dict[word][6])
-        rate = [1 - num for num in rate]
-        return rate
+            power_double *= math.pow(2,self.pword_dict[word][6])
+        return power_double - 1.0
 
     def get_feature_num(self):
         return 1
@@ -567,8 +569,8 @@ class PowerfulWordOneSideRate(Extractor):
         self.pword_dict = dict(PowerfulWord.load_powerful_word(powerful_word_fp))
 
     def extract_row(self, row):
-        num_least = 300
-        rate = [1.0]
+        num_least = 20
+        power_single = 1.0
         q1_words = set(str(row['spanish_sentence1']).lower().split())
         q2_words = set(str(row['spanish_sentence2']).lower().split())
         q1_diff = list(set(q1_words).difference(set(q2_words)))
@@ -579,9 +581,8 @@ class PowerfulWordOneSideRate(Extractor):
                 continue
             if self.pword_dict[word][0] * self.pword_dict[word][3] < num_least:
                 continue
-            rate[0] *= (1.0 - self.pword_dict[word][4])
-        rate = [1 - num for num in rate]
-        return rate
+            power_single *= math.pow(2,self.pword_dict[word][4])
+        return power_single - 1.0
 
     def get_feature_num(self):
         return 1
@@ -589,7 +590,7 @@ class PowerfulWordOneSideRate(Extractor):
 def demo():
     #Need_change
     config_fp = '../conf/featwheel.conf'
-    precess_file_name = 'preprocessing_test.csv'
+    precess_file_name = 'preprocessing_train_merge.csv'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
     devel_pt = config.get('DIRECTORY', 'devel_pt')
@@ -608,11 +609,16 @@ def demo():
     NgramDiceDistance(config_fp).extract(precess_file_name)
     EnCharCount(config_fp).extract(precess_file_name)
     DulNum(config_fp).extract(precess_file_name)
-    '''
+    
     NgramDistance(config_fp,'edit_dist').extract(precess_file_name)
+    '''
     '''
     result = PowerfulWord.generate_powerful_word(config_fp,begin_index,end_index)
     PowerfulWord.save_powerful_word(result,fp_powerword)
+    '''
+    
+    PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
+    '''
     PowerfulWordDoubleSide(config_fp).extract(precess_file_name)
     PowerfulWordOneSide(config_fp).extract(precess_file_name)
     PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
