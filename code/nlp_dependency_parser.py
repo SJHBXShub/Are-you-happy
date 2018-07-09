@@ -13,7 +13,7 @@ class SpacySVOExtract(Extractor):
     def __init__(self, config_fp):
         Extractor.__init__(self, config_fp)
 
-    def extract_row(self, row):
+    # def extract_row(self, row):
 
 
 
