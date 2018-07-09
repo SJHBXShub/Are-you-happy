@@ -16,8 +16,21 @@ class SpacySVOExtract(Extractor):
 	def extract_row(self, row):
 		q1 = str(row['spanish_sentence1'])
 		q2 = str(row['spanish_sentence2'])
+
 		doc1 = nlp(q1)
 		doc2 = nlp(q2)
+		for token in doc1:
+			newArc1 = DependencyArc(IndexedWord(token.head.text, token.head.i + 1), IndexedWord(token.text, token.i + 1),token.dep_)
+			arcs.add(newArc1)
+			print(newArc1)
+			print()
+
+		for token in doc2:
+			newArc2 = DependencyArc(IndexedWord(token.head.text, token.head.i + 1), IndexedWord(token.text, token.i + 1),token.dep_)
+			arcs.add(newArc2)
+			print(newArc2)
+			print()
+
 
 
 nlp = spacy.load("en")
