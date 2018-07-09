@@ -10,12 +10,14 @@ from extractor import Extractor
 # if there is an error "no module named en"
 # use "python -m spacy download en" in terminal
 class SpacySVOExtract(Extractor):
-    def __init__(self, config_fp):
-        Extractor.__init__(self, config_fp)
+	def __init__(self, config_fp):
+		Extractor.__init__(self, config_fp)
 
-    # def extract_row(self, row):
-
-
+	def extract_row(self, row):
+		q1 = str(row['spanish_sentence1'])
+		q2 = str(row['spanish_sentence2'])
+		doc1 = nlp(q1)
+		doc2 = nlp(q2)
 
 
 nlp = spacy.load("en")
