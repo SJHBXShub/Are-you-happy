@@ -9,24 +9,73 @@ from collections import namedtuple
 from extractor import Extractor
 # if there is an error "no module named en"
 # use "python -m spacy download en" in terminal
-class SpacySVOExtract(Extractor):
-	def __init__(self, config_fp):
+
+# SVO Extract in English
+class SpacySVOExtractEnglish(Extractor):
+	def __init__(self, config_fp, language = "en"):
 		Extractor.__init__(self, config_fp)
+		# should be modified
+		self.language = language
+		# should be modified
 
 	def extract_row(self, row):
+		# input sentences
 		q1 = str(row['spanish_sentence1'])
-		q2 = str(row['spanish_sentence2'])
-
+        # extract English
 		nlp = spacy.load("en")
 
 		doc1 = nlp(q1)
-		doc2 = nlp(q2)
 
 		feature_SVO = self.extract_SVO(doc1)
+
+		# return a list which contain Subject Verb Object
 		return feature_SVO
 
 	def extract_SVO(self, doc):
+        # Extract function in low level
+		IndexedWord = namedtuple('IndexedWord', 'word index')
+		DependencyArc = namedtuple('DependencyArc', 'start_word end_word label')
 
+		arcs = set()
+		fs = list()
+
+		for token in doc:
+			# nsubj -> subject, root -> verb or link verb, dobj -> object, attr -> attribute
+			newArc = DependencyArc(IndexedWord(token.head.text, token.head.i + 1), IndexedWord(token.text, token.i + 1),
+								   token.dep_)
+			arcs.add(token)
+			if token.dep_ == "nsubj" or token.dep_ == "ROOT" or token.dep_ == "attr" or token.dep_ == "dobj":
+				temp = list()
+				temp.append(token)
+				temp.append(token.dep_)
+				fs.append(temp)
+				print(fs)
+			# 	put the sentence constituents into lists
+
+			return fs
+
+	def get_feature_num(self):
+		return 1
+
+
+class SpacySVOExtractSpainish(Extractor):
+	def __init__(self, config_fp, language="es"):
+		Extractor.__init__(self, config_fp)
+		self.language = language
+    # same as above
+	def extract_row(self, row):
+		q1 = str(row['spanish_sentence1'])
+
+		nlp = spacy.load("es")
+
+		doc1 = nlp(q1)
+
+		feature_SVO = self.extract_SVO(doc1)
+
+		return feature_SVO
+
+	def extract_SVO(self, doc):
+        # same as above
 		IndexedWord = namedtuple('IndexedWord', 'word index')
 		DependencyArc = namedtuple('DependencyArc', 'start_word end_word label')
 
@@ -37,9 +86,7 @@ class SpacySVOExtract(Extractor):
 			newArc = DependencyArc(IndexedWord(token.head.text, token.head.i + 1), IndexedWord(token.text, token.i + 1),
 								   token.dep_)
 			arcs.add(token)
-			print(token)
-			print(token.dep_)
-			if token.dep_ == "nsubj" or token.dep_ == "ROOT" or token.dep_ == "attr":
+			if token.dep_ == "nsubj" or token.dep_ == "ROOT" or token.dep_ == "attr" or token.dep_ == "dobj":
 				temp = list()
 				temp.append(token)
 				temp.append(token.dep_)
@@ -48,25 +95,34 @@ class SpacySVOExtract(Extractor):
 
 			return fs
 
+	def get_feature_num(self):
+		return 1
 
+def demo():
+	config_fp = '../conf/featwheel.conf'
+	# SpacySVOExtractEnglish(config_fp).extract('preprocessing_train_merge.csv')
+	SpacySVOExtractSpainish(config_fp).extract('preprocessing_train_merge.csv')
+	return
 
+if __name__ == '__main__':
+    demo()
 
 # nlp = spacy.load("en")
-# # nlp = spacy.load("es")
-#
+# # # nlp = spacy.load("es")
+# #
 # IndexedWord = namedtuple('IndexedWord','word index')
 # DependencyArc = namedtuple('DependencyArc','start_word end_word label')
-# doc = nlp(u"it is word tokenize test for spacy")
-#
+# doc = nlp(u"I eat a fantastic huge delicious orange which I have never seen")
+# #
 # arcs = set()
 # fs = list()
-#
+# #
 # for token in doc:
 # 	newArc = DependencyArc(IndexedWord(token.head.text,token.head.i+1),IndexedWord(token.text,token.i+1),token.dep_)
 # 	arcs.add(token)
 # 	print(token)
 # 	print(token.dep_)
-# 	if token.dep_ == "nsubj" or token.dep_ == "ROOT" or token.dep_ == "attr":
+# 	if token.dep_ == "nsubj" or token.dep_ == "ROOT" or token.dep_ == "attr" or token.dep_ == "dobj":
 # 		temp = list()
 # 		temp.append(token)
 # 		temp.append(token.dep_)
