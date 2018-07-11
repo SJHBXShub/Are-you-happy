@@ -1,9 +1,5 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2017/6/19 22:07
-# @Author  : HouJP
-# @Email   : houjp1992@gmail.com
-
 
 import hashlib
 import random

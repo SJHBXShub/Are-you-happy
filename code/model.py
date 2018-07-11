@@ -13,14 +13,14 @@ import operator
 import xgboost as xgb
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegression as skl_logistic_regression
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier
 import pandas as pd
 
 from utils import LogUtil
 
 
 class Model(object):
-    valid_model_name = ['XGB','LogisticRegression','RandomForest']
+    valid_model_name = ['XGB','LogisticRegression','RandomForest','GradientBoost']
 
     @staticmethod
     def new(model_name, config_fp):
@@ -73,7 +73,6 @@ class Model(object):
             LogUtil.log('INFO', 'delete lock, lock_name=%s' % lock_name)
         else:
             LogUtil.log('WARNING', 'missing lock, lock_name=%s' % lock_name)
-
 
 class XGB(Model):
     def __init__(self, config_fp):
@@ -173,7 +172,6 @@ class XGB(Model):
         for kv in fn2score_sorted:
             print('%s\t%d' % (kv[0], kv[1]))
 
-
 class LogisticRegression(Model):
     def __init__(self, config_fp):
         Model.__init__(self, config_fp)
@@ -234,6 +232,7 @@ class RandomForest(Model):
         params['min_samples_split'] = int(self.config.get('RANDOMFOREST', 'min_samples_split'))
         params['n_jobs'] = int(self.config.getint('RANDOMFOREST', 'n_jobs'))
         params['random_state'] = int(self.config.getint('RANDOMFOREST', 'random_state'))
+        params['loss'] = str(self.config.get('RANDOMFOREST', 'loss'))
         return params
 
     def save(self, model_fp):
@@ -251,7 +250,8 @@ class RandomForest(Model):
                                             max_features = self.params['max_features'],
                                             min_samples_split = self.params['min_samples_split'], 
                                             random_state = self.params['random_state'], 
-                                            n_jobs = self.params['n_jobs'])
+                                            n_jobs = self.params['n_jobs'],
+                                            loss = self.params['loss'])
 
         self.model.fit(X=train_fs, y=train_labels)
         train_preds = self.model.predict_proba(train_fs)[:, 1]
@@ -264,4 +264,41 @@ class RandomForest(Model):
         preds = self.model.predict_proba(features)[:, 1]
         return preds
 
+class GradientBoost(Model):
+    def __init__(self, config_fp):
+        Model.__init__(self, config_fp)
+        self.params = self.__load_parameters()
 
+    def __load_parameters(self):
+        params = dict() 
+        params['n_estimators'] = int(self.config.get('GBDT', 'n_estimators'))
+        params['loss'] = str(self.config.get('GBDT', 'loss'))
+        params['max_depth'] = int(self.config.get('GBDT', 'max_depth'))
+        params['verbose'] = int(self.config.getint('GBDT', 'verbose'))
+        return params
+
+    def save(self, model_fp):
+        joblib.dump(self.model, model_fp)
+
+    def load(self, model_fp):
+        self.model = joblib.load(model_fp)
+
+    def fit(self,
+            train_fs, train_labels,
+            valid_fs, valid_labels,
+            test_fs, test_labels):
+    
+        self.model = GradientBoostingClassifier(n_estimators = self.params['n_estimators'],
+                                                max_depth=self.params['max_depth'], 
+                                                loss=self.params['loss'],
+                                                verbose=self.params['verbose'])
+
+        self.model.fit(X=train_fs, y=train_labels)
+        train_preds = self.model.predict_proba(train_fs)[:, 1]
+        valid_preds = self.model.predict_proba(valid_fs)[:, 1]
+        test_preds = self.model.predict_proba(test_fs)[:, 1]
+        return train_preds, valid_preds, test_preds
+
+    def predict(self, features, labels=None):
+        preds = self.model.predict_proba(features)[:, 1]
+        return preds

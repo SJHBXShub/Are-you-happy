@@ -1,8 +1,5 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2017/6/22 14:30
-# @Author  : HouJP
-# @Email   : houjp1992@gmail.com
 
 
 import math
@@ -33,3 +30,7 @@ class Evaluator(object):
         else:
             s = -1
         return s
+
+    @staticmethod
+    def mean_value(x):
+        return sum(x) * 1.0 / len(x)

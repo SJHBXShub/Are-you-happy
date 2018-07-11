@@ -15,9 +15,10 @@ class PostProcessor(object):
         return a * x / (a * x + b * (1 - x))
 
     @staticmethod
-    def rescale(config, online_preds_fp):
+    def rescale(online_preds_fp):
         online_preds = DataUtil.load_vector(online_preds_fp, 'float')
-
+        
+        '''
         feature_name = 'graph_edge_max_clique_size'
         feature_pt = config.get('DEFAULT', 'feature_pt')
         test_feature_fp = '%s/%s.test.smat' % (feature_pt, feature_name)
@@ -27,9 +28,13 @@ class PostProcessor(object):
         feature_pt = config.get('DEFAULT', 'feature_pt')
         test_feature_fp = '%s/%s.test.smat' % (feature_pt, feature_name)
         test_features_cc = Feature.load(test_feature_fp).toarray()
+        '''
 
         for index in range(len(online_preds)):
             score = online_preds[index]
+            score = PostProcessor.adj(score, te=0.45, tr=0.25)
+            online_preds[index] = score
+            '''
             if test_features_mc[index][0] == 3.:
                 score = PostProcessor.adj(score, te=0.40883512, tr=0.623191)
             elif test_features_mc[index][0] > 3.:
@@ -40,6 +45,7 @@ class PostProcessor(object):
                 else:
                     score = PostProcessor.adj(score, te=0.04503431, tr=0.149471)
             online_preds[index] = score
+            '''
 
         DataUtil.save_vector(online_preds_fp + '.rescale', online_preds)
 

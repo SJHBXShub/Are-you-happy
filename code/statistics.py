@@ -21,6 +21,12 @@ from utils import MISSING_VALUE_NUMERIC
 
 from extractor import Extractor
 from preprocessor import TextPreProcessor
+import scipy
+
+from scipy.stats import skew, kurtosis
+from fuzzywuzzy import fuzz
+from scipy.spatial.distance import cosine, cityblock, jaccard, canberra, euclidean, minkowski, braycurtis
+from sklearn.metrics.pairwise import rbf_kernel, polynomial_kernel, laplacian_kernel, sigmoid_kernel
 
 stops = set(stopwords.words("spanish"))
 snowball_stemmer = SnowballStemmer('spanish')
@@ -45,6 +51,10 @@ class Not(Extractor):
         
         not_cnt1 = q1_words.count(b'no')
         not_cnt2 = q2_words.count(b'no')
+        not_cnt1 += q1_words.count(b'ni')
+        not_cnt2 += q2_words.count(b'ni')
+        not_cnt1 += q1_words.count(b'nunca')
+        not_cnt2 += q2_words.count(b'nunca')
 
         fs = list()
         fs.append(not_cnt1)
@@ -63,7 +73,6 @@ class Not(Extractor):
             fs.append(0.)
 
         return fs
-
 
 class WordMatchShare(Extractor):
 
@@ -87,7 +96,6 @@ class WordMatchShare(Extractor):
     def get_feature_num(self):
         return 1
 
-
 class TFCount(Extractor):
 
     def __init__(self, config):
@@ -108,7 +116,6 @@ class TFCount(Extractor):
         tf_result = tf_vectorizer.fit_transform(tf_txt)
         LogUtil.log("INFO", "init TF done ")
         return tf_vectorizer, tf_result
-
 
 class TFIDFWordMatchShare(Extractor):
 
@@ -164,7 +171,6 @@ class TFIDFWordMatchShare(Extractor):
     def get_feature_num(self):
         return 1
 
-
 class Length(Extractor):
     def extract_row(self, row):
         q1 = str(row['spanish_sentence1'])
@@ -179,7 +185,6 @@ class Length(Extractor):
 
     def get_feature_num(self):
         return 4
-
 
 class LengthDiff(Extractor):
     def extract_row(self, row):
@@ -353,6 +358,37 @@ class Distance(Extractor):
     def get_feature_num(self):
         return 2
 
+class PhraseToSentenceDistance(Extractor):
+    def __init__(self, config_fp, distance_mode):
+        Extractor.__init__(self, config_fp)
+        self.feature_name += '_%s' % distance_mode
+        self.valid_distance_mode = ['edit_dist', 'compression_dist']
+        assert distance_mode in self.valid_distance_mode, "Wrong aggregation_mode: %s" % distance_mode
+        self.distance_mode = distance_mode
+        self.distance_func = getattr(DistanceUtil, self.distance_mode)
+
+    def extract_row(self,row):
+        q1 = str(row['spanish_sentence1']).strip()
+        q2 = str(row['spanish_sentence2']).strip()
+        num_word1 = len(q1.split())
+        num_word2 = len(q2.split())
+        min_dis = 9999999999.0
+
+        if num_word1 < 5 and (num_word2 - num_word1) > 4 or num_word2 < 5 and (num_word1 - num_word2) > 4:
+            if num_word1 > num_word2:
+                tem = q1
+                q1 = q2
+                q2 = tem
+            for i in range(abs(num_word2 - num_word1)):
+                cur_dis = self.distance_func(q1, ' '.join(q2.split()[i:i+num_word1]))
+                if cur_dis < min_dis:
+                    min_dis = cur_dis
+            return [min_dis]
+        else:
+            return [self.distance_func(q1, q2)]
+
+    def get_feature_num(self):
+        return 1
 
 class NgramDistance(Distance):
 
@@ -487,7 +523,6 @@ class PowerfulWord(object):
             f.write("\n")
         f.close()
 
-
 class PowerfulWordDoubleSide(Extractor):
 
     def __init__(self, config_fp, thresh_num=0, thresh_rate=0.0):
@@ -520,7 +555,6 @@ class PowerfulWordDoubleSide(Extractor):
 
     def get_feature_num(self):
         return len(self.pword_dside)
-
 
 class PowerfulWordOneSide(Extractor):
 
@@ -559,7 +593,6 @@ class PowerfulWordOneSide(Extractor):
     def get_feature_num(self):
         return len(self.pword_oside)
 
-
 class PowerfulWordDoubleSideRate(Extractor):
     def __init__(self, config_fp):
         Extractor.__init__(self, config_fp)
@@ -571,6 +604,7 @@ class PowerfulWordDoubleSideRate(Extractor):
     def extract_row(self, row):
         num_least = 20
         power_double = 1.0
+        tag = []
         q1_words = set(str(row['spanish_sentence1']).lower().split())
         q2_words = set(str(row['spanish_sentence2']).lower().split())
         share_words = list(q1_words.intersection(q2_words))
@@ -581,11 +615,74 @@ class PowerfulWordDoubleSideRate(Extractor):
             if self.pword_dict[word][0] * self.pword_dict[word][5] < num_least:
                 continue
             power_double *= math.pow(2,self.pword_dict[word][6])
-        return power_double - 1.0
+        tag.append(power_double - 1.0)
+        return tag
 
     def get_feature_num(self):
         return 1
 
+class fuzz_QRatio(Extractor):
+    def extract_row(self, row):
+        q1_words = set(str(row['spanish_sentence1']).lower().split())
+        q2_words = set(str(row['spanish_sentence2']).lower().split())
+        return [fuzz.QRatio(q1_words, q2_words)]
+
+    def get_feature_num(self):
+        return 1
+
+class fuzz_WRatio(Extractor):
+    def extract_row(self, row):
+        q1_words = set(str(row['spanish_sentence1']).lower().split())
+        q2_words = set(str(row['spanish_sentence2']).lower().split())
+        return [fuzz.WRatio(q1_words, q2_words)]
+
+    def get_feature_num(self):
+        return 1
+
+class fuzz_partial_ratio(Extractor):
+    def extract_row(self, row):
+        q1_words = set(str(row['spanish_sentence1']).lower().split())
+        q2_words = set(str(row['spanish_sentence2']).lower().split())
+        return [fuzz.partial_ratio(q1_words, q2_words)]
+
+    def get_feature_num(self):
+        return 1
+
+class fuzz_partial_token_set_ratio(Extractor):
+    def extract_row(self, row):
+        q1_words = set(str(row['spanish_sentence1']).lower().split())
+        q2_words = set(str(row['spanish_sentence2']).lower().split())
+        return [fuzz.partial_token_set_ratio(q1_words, q2_words)]
+
+    def get_feature_num(self):
+        return 1
+
+class fuzz_partial_token_sort_ratio(Extractor):
+    def extract_row(self, row):
+        q1_words = set(str(row['spanish_sentence1']).lower().split())
+        q2_words = set(str(row['spanish_sentence2']).lower().split())
+        return [fuzz.partial_token_sort_ratio(q1_words, q2_words)]
+
+    def get_feature_num(self):
+        return 1
+
+class fuzz_token_set_ratio(Extractor):
+    def extract_row(self, row):
+        q1_words = set(str(row['spanish_sentence1']).lower().split())
+        q2_words = set(str(row['spanish_sentence2']).lower().split())
+        return [fuzz.token_set_ratio(q1_words, q2_words)]
+
+    def get_feature_num(self):
+        return 1
+
+class fuzz_token_sort_ratio(Extractor):
+    def extract_row(self, row):
+        q1_words = set(str(row['spanish_sentence1']).lower().split())
+        q2_words = set(str(row['spanish_sentence2']).lower().split())
+        return [fuzz.token_sort_ratio(q1_words, q2_words)]
+
+    def get_feature_num(self):
+        return 1
 
 class PowerfulWordOneSideRate(Extractor):
     def __init__(self, config_fp):
@@ -598,6 +695,7 @@ class PowerfulWordOneSideRate(Extractor):
     def extract_row(self, row):
         num_least = 20
         power_single = 1.0
+        tag = []
         q1_words = set(str(row['spanish_sentence1']).lower().split())
         q2_words = set(str(row['spanish_sentence2']).lower().split())
         q1_diff = list(set(q1_words).difference(set(q2_words)))
@@ -609,22 +707,192 @@ class PowerfulWordOneSideRate(Extractor):
             if self.pword_dict[word][0] * self.pword_dict[word][3] < num_least:
                 continue
             power_single *= math.pow(2,self.pword_dict[word][4])
-        return power_single - 1.0
+        tag.append(power_single - 1.0)
+        return tag
 
     def get_feature_num(self):
         return 1
 
+class long_common_sequence(Extractor):
+    def extract_row(self, row):
+        q1_words = (str(row['spanish_sentence1']).lower().split())
+        q2_words = (str(row['spanish_sentence2']).lower().split())
+        len1 = len(q1_words)
+        len2 = len(q2_words)
+        dp = [ [ 0 for j in range(len2) ] for i in range(len1) ]
+        for i in range(len1):
+            for j in range(len2):
+                if q1_words[i] == q2_words[j]:
+                    dp[i][j] = dp[i-1][j-1] + 1
+                else:
+                    dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+        return [dp[len1-1][len2-1] * 1.0 / (len1 + len2)]
+
+    def get_feature_num(self):
+        return 1
+
+class long_common_prefix(Extractor):
+    def extract_row(self, row):
+        q1_words = (str(row['spanish_sentence1']).lower().split())
+        q2_words = (str(row['spanish_sentence2']).lower().split())
+        len1 = len(q1_words)
+        len2 = len(q2_words)
+        max_prefix = 0
+        min_len = min(len1, len2)
+        for i in range(min_len):
+            if q1_words[i] == q2_words[i]:
+                max_prefix += 1
+        return [max_prefix * 1.0 / (len1 + len2)]
+
+    def get_feature_num(self):
+        return 1
+
+class long_common_suffix(Extractor):
+    def extract_row(self, row):
+        q1_words = (str(row['spanish_sentence1']).lower().split())
+        q2_words = (str(row['spanish_sentence2']).lower().split())
+        len1 = len(q1_words)
+        len2 = len(q2_words)
+        q1_words.reverse()
+        q2_words.reverse()
+        max_prefix = 0
+        min_len = min(len1, len2)
+        for i in range(min_len):
+            if q1_words[i] == q2_words[i]:
+                max_prefix += 1
+        return [max_prefix * 1.0 / (len1 + len2)]
+
+    def get_feature_num(self):
+        return 1
+
+class long_common_substring(Extractor):
+    def extract_row(self, row):
+        q1_words = (str(row['spanish_sentence1']).lower().split())
+        q2_words = (str(row['spanish_sentence2']).lower().split())
+        len1 = len(q1_words)
+        len2 = len(q2_words)
+        dp = [ [ 0 for j in range(len2) ] for i in range(len1) ]
+        for i in range(len1):
+            for j in range(len2):
+                if q1_words[i] == q2_words[j]:
+                    dp[i][j] = dp[i-1][j-1] + 1
+                else:
+                    dp[i][j] = 0
+        return [dp[len1-1][len2-1] * 1.0 / (len1 + len2)]
+
+    def get_feature_num(self):
+        return 1
+
+class levenshtein_distance(Extractor):
+    def extract_row(self, row):
+        q1_words = (str(row['spanish_sentence1']).lower().split())
+        q2_words = (str(row['spanish_sentence2']).lower().split())
+        s = q1_words
+        t = q2_words
+        if s == t: return 0
+        elif len(s) == 0: return len(t)
+        elif len(t) == 0: return len(s)
+        v0 = [None] * (len(t) + 1)
+        v1 = [None] * (len(t) + 1)
+        for i in range(len(v0)):
+            v0[i] = i
+        for i in range(len(s)):
+            v1[0] = i + 1
+            for j in range(len(t)):
+                cost = 0 if s[i] == t[j] else 1
+                v1[j + 1] = min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost)  
+            for j in range(len(v0)):
+                v0[j] = v1[j]  
+        return [v1[len(t)] / (len(s) + len(t))]
+
+    def get_feature_num(self):
+        return 1
+
+class cityblock_distance_ave_idf(Extractor):
+    def __init__(self, config_fp):
+        Extractor.__init__(self, config_fp)
+        words_pt = '%s/%s' % (self.config.get('DIRECTORY', 'source_pt'), self.config.get('FILE_NAME', 'words_txt'))
+        self.words_dict = self.getWordsDict(words_pt=words_pt)
+        print("get word2vec_dict...")
+        word2vec_pt = '%s/%s' % (self.config.get('DIRECTORY', 'source_pt'), self.config.get('FILE_NAME', 'wiki_es_vec'))
+        self.word2vec_dict = self.getWord2VecDict(word2vec_pt)
+        print("get word2vec_dict done")
+    
+    def getWordsDict(self,words_pt):
+        words_dict = {}
+        with open(words_pt,'r') as f_in:
+            for raw_line in f_in:
+                line = raw_line.strip('\n').split()
+                if len(line) != 2:
+                    continue
+                words_dict[line[0]] = float(line[1])
+        return words_dict
+    
+    def getWord2VecDict(self,word2vec_pt):
+        word2vec_dict = {}
+        with open(word2vec_pt,'r') as f_in:
+            for raw_line in f_in:
+                line = raw_line.strip('\n\r').split()
+                if line[0] in self.words_dict and line[1] not in self.words_dict:
+                    #print(line[1:])
+                    try:
+                        word2vec_dict[line[0]] = [float(i) for i in line[1:]]
+                    except:
+                        continue
+                    #word2vec_dict[line[0]] = [float(i) for i in line[1:]]
+        return word2vec_dict
+
+    def sent2vec_ave_idf(self,sen):
+        M = [[ 0 for i in range(300) ]]
+        words = sen
+        for w in words:
+            try:
+                M.append([ self.words_dict[w] * x for x in self.word2vec_dict[w] ])
+            except:
+                continue
+        M = np.array(M)
+        num = M.shape[0]
+        v = M.sum(axis=0)
+        return v / num
+
+    def extract_row(self, row):
+        q1_words = str(row['spanish_sentence1']).lower().split()
+        q2_words = str(row['spanish_sentence2']).lower().split()
+        sent1_vectors = self.sent2vec_ave_idf(q1_words)
+        sent2_vectors = self.sent2vec_ave_idf(q2_words)
+        x,y = np.nan_to_num(sent1_vectors), np.nan_to_num(sent2_vectors)
+        return [cityblock(x, y),jaccard(x, y),cosine(x, y),canberra(x, y),euclidean(x, y),braycurtis(x, y),minkowski(x, y, 3),skew(x),skew(y),kurtosis(x),kurtosis(y)]
+    def get_feature_num(self):
+        return 11
+
 def demo():
     #Need_change
     config_fp = '../conf/featwheel.conf'
-    precess_file_name = 'preprocessing_train_merge.csv'
+    #precess_file_name = 'preprocessing_train_merge.csv'
+    precess_file_name = 'preprocessing_test.csv'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
     devel_pt = config.get('DIRECTORY', 'devel_pt')
     fp_powerword = '%s/%s.txt' % (devel_pt,'words_power')
     begin_index = int(config.get('FEATURE', 'begin_index'))
     end_index = int(config.get('FEATURE', 'end_index'))
+    TFIDF(config_fp).extract(precess_file_name)
+    #cityblock_distance_ave_idf(config_fp).extract(precess_file_name)
+   
+    
     '''
+    long_common_sequence(config_fp).extract(precess_file_name)
+    long_common_prefix(config_fp).extract(precess_file_name)
+    long_common_suffix(config_fp).extract(precess_file_name)
+    long_common_substring(config_fp).extract(precess_file_name)
+    levenshtein_distance(config_fp).extract(precess_file_name)
+    fuzz_QRatio(config_fp).extract(precess_file_name)
+    fuzz_WRatio(config_fp).extract(precess_file_name)
+    fuzz_partial_ratio(config_fp).extract(precess_file_name)
+    fuzz_partial_token_set_ratio(config_fp).extract(precess_file_name)
+    fuzz_partial_token_sort_ratio(config_fp).extract(precess_file_name)
+    fuzz_token_set_ratio(config_fp).extract(precess_file_name)
+    fuzz_token_sort_ratio(config_fp).extract(precess_file_name)
     Not(config_fp).extract(precess_file_name)
     WordMatchShare(config_fp).extract(precess_file_name)
     TFIDFWordMatchShare(config_fp).extract(precess_file_name)
@@ -643,8 +911,10 @@ def demo():
     result = PowerfulWord.generate_powerful_word(config_fp,begin_index,end_index)
     PowerfulWord.save_powerful_word(result,fp_powerword)
     '''
-    
+    '''
+    PowerfulWordOneSideRate(config_fp).extract(precess_file_name)
     PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
+    '''
     '''
     PowerfulWordDoubleSide(config_fp).extract(precess_file_name)
     PowerfulWordOneSide(config_fp).extract(precess_file_name)
@@ -655,3 +925,18 @@ def demo():
 
 if __name__ == '__main__':
     demo()
+    '''
+    q1 = "I am a student"
+    q2 = "I love you and I am a student and you"
+    print(q2.split()[0:2])
+    if True:
+        num_word1 = len(q1.split())
+        num_word2 = len(q2.split())
+        if num_word1 < 5 and (num_word2 - num_word1) > 4 or num_word2 < 5 and (num_word1 - num_word2) > 4:
+            min_dis = 9999999999.0
+            for i in range((num_word2 - num_word1)):
+                print(q1, ' '.join(q2.split()[i:i+num_word1]))
+
+                #cur_dis = self.distance_func(q1,q2.split()[i,i+num_word1])'''
+                
+

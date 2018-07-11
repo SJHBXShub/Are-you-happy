@@ -9,6 +9,7 @@ import configparser as ConfigParser
 import os
 import random
 import time
+import numpy as np
 
 from utils import LogUtil, DataUtil
 from evaluator import Evaluator
@@ -70,22 +71,27 @@ class Runner(object):
 class SingleExec(Runner):
     def __init__(self, config_fp):
         Runner.__init__(self, config_fp)
-        self.se_num, self.se_tag = self.__load_parameters()
+        self.se_num, self.se_tag, self.se_train_rate, self.se_cv_rate, self.se_test_rate, self.se_seed = self.__load_parameters()
 
     def __load_parameters(self):
         se_num = int(self.config.get('SINGLE_EXEC', 'se_num'))
+        se_train_rate = float(self.config.get('SINGLE_EXEC', 'se_train_rate'))
+        se_cv_rate = float(self.config.get('SINGLE_EXEC', 'se_cv_rate'))
+        se_test_rate = float(self.config.get('SINGLE_EXEC', 'se_test_rate'))
         se_tag = self.config.get('SINGLE_EXEC', 'se_tag')
-        return se_num, se_tag
+        se_seed = int(self.config.get('SINGLE_EXEC', 'se_seed'))
+        return se_num, se_tag, se_train_rate,se_cv_rate,se_test_rate, se_seed
 
     def __generate_index(self, row_num):
         train_indexs = list()
         valid_indexs = list()
         test_indexs = list()
         for i in range(row_num):
+            random.seed(i)
             part_id = random.random() * self.se_num
-            if part_id < self.se_num - 2:
+            if part_id < self.se_num * self.se_train_rate:
                 train_indexs.append(i)
-            elif part_id < self.se_num - 1:
+            elif part_id < self.se_num * (self.se_train_rate + self.se_cv_rate):
                 valid_indexs.append(i)
             else:
                 test_indexs.append(i)
@@ -141,7 +147,7 @@ class SingleExec(Runner):
                                        offline_labels,
                                        offline_features,
                                        offline_valid_pos_rate)
-        print(len(offline_valid_indexs))
+        
         LogUtil.log('INFO', 'offline valid data generation done')
 
         # generate test data set
@@ -169,27 +175,39 @@ class SingleExec(Runner):
         offline_train_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                  offline_train_labels,
                                                  offline_train_preds)
-        print("1",len(offline_valid_labels))
-        print('2',len(offline_valid_preds))
+        
         offline_valid_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                  offline_valid_labels,
                                                  offline_valid_preds)
         offline_test_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                 offline_test_labels,
                                                 offline_test_preds)
+        offline_train_pre_mean = Evaluator.mean_value(offline_train_preds)
+        offline_valid_pre_mean = Evaluator.mean_value(offline_valid_preds)
+        offline_test_pre_mean = Evaluator.mean_value(offline_test_labels)
+        offline_train_label_mean = Evaluator.mean_value(offline_train_labels)
+        offline_valid_label_mean = Evaluator.mean_value(offline_valid_labels)
+        offline_test_label_mean = Evaluator.mean_value(offline_test_labels)
+
+
         model.save(model_fp = model_fp)
         score_fp = '%s/%s.score' % (self.config.get('DIRECTORY', 'score_pt'), 'cv')
         score_file = open(score_fp, 'a')
         score_file.write('single_exec\ttrain:%s\tvalid:%s\ttest:%s\n' % (offline_train_score,
                                                                          offline_valid_score,
                                                                          offline_test_score))
+        score_file.write('offline_train_pre_mean:%s\toffline_train_label_mean:%s\n'
+                          'offline_valid_pre_mean:%s\toffline_valid_label_mean:%s\n'
+                          'offline_test_pre_mean:%s\toffline_test_label_mean:%s\n' %
+                          (offline_train_pre_mean,offline_train_label_mean,
+                            offline_valid_pre_mean,offline_valid_label_mean,
+                            offline_test_pre_mean,offline_test_label_mean))
         score_file.close()
         # save prediction results
         offline_valid_preds_fp = '%s/se_valid.%s.pred' % (self.config.get('DIRECTORY', 'pred_pt'),
                                                           self.config.get('FEATURE', 'offline_rawset_name'))
         offline_valid_index_fp = '%s/se_valid.%s.index' % (self.config.get('DIRECTORY', 'index_out_pt'),
                                                           self.config.get('FEATURE', 'offline_rawset_name'))
-        print(len(offline_valid_preds))
         DataUtil.save_vector(offline_valid_preds_fp, offline_valid_preds, 'w')
         DataUtil.save_vector(offline_valid_index_fp, offline_valid_indexs, 'w')
         offline_test_preds_fp = '%s/se_test.%s.pred' % (self.config.get('DIRECTORY', 'pred_pt'),
@@ -206,13 +224,14 @@ class SingleExec(Runner):
                                            self.config.get('FEATURE', 'feature_selected').split(),
                                            self.config.get('FEATURE', 'online_rawset_name'),
                                            self.config.get('FEATURE', 'will_save'))
+
         model = Model.new(self.config.get('MODEL', 'model_name'), self.config)
         model_fp = self.config.get('DIRECTORY', 'model_pt') + '/se.%s.model' % self.config.get('MODEL', 'model_name')
         model.load(model_fp)
         p = model.predict(online_features)
         online_preds_fp = '%s/se_online.%s.pred' % (self.config.get('DIRECTORY', 'pred_pt'),
                                                     self.config.get('FEATURE', 'online_rawset_name'))
-
+        print("test mean",Evaluator.mean_value(p))
         DataUtil.save_vector(online_preds_fp, p, 'w')
 
 

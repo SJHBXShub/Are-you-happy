@@ -1,14 +1,11 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
-# @Time    : 2017/6/16 10:55
-# @Author  : HouJP
-# @Email   : houjp1992@gmail.com
-
 
 import configparser as ConfigParser
 import pandas as pd
 from utils import LogUtil
 from feature import Feature
+#import numpy as np
 
 
 class Extractor(object):
@@ -26,14 +23,14 @@ class Extractor(object):
         # load configuration file
         self.config = ConfigParser.ConfigParser()
         self.config.read(config_fp)
-        self.data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), data_set_name)).fillna(value="")
+        self.data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_pt'), data_set_name)).fillna(value="")
 
     def get_feature_num(self):
         assert False, 'Please override function: Extractor.get_feature_num()'
 
     def extract_row(self, row):
         assert False, 'Please override function: Extractor.extract_row()'
-
+    
     def extract(self, data_set_name, part_num=1, part_id=0):
         """
         Extract the feature from original data set
@@ -61,7 +58,10 @@ class Extractor(object):
         feature_file = open(self.data_feature_fp, 'w')
         feature_file.write('%d %d\n' % (end_id - begin_id, int(self.get_feature_num())))
         # extract feature
-
+        pos_num = 1
+        neg_num = 1
+        pos_val = 0
+        neg_val = 0
         for index, row in data[begin_id:end_id].iterrows():
             feature = self.extract_row(row)
             Feature.save_feature(feature, feature_file)
