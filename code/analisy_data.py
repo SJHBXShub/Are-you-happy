@@ -25,12 +25,14 @@ class FeatureAnalysis():
                 cur_feature.append(offline_features[j,i])
                 value = offline_features[j,i]
                 X = np.asanyarray(value)
+                '''
                 if (X.dtype.char in np.typecodes['AllFloat'] and not np.isfinite(X.sum()) and not np.isfinite(X).all()):
-                    print(value,i,j)
+                    print(value,i,j,mul_feature_name[i])
                     raise ValueError("Input contains NaN, infinity"
-                         " or a value too large for %r." % X.dtype)
-            else:
-                print("feature ok")
+                         " or a value too large for %r." % X.dtype)'''
+            if len(cur_feature) != num_sample:
+                print("feature is not num_sample",i,mul_feature_name[i])
+            print("feature ok",i,mul_feature_name[i])
             
 
     def getFeatureNumber(self):
@@ -370,12 +372,13 @@ if __name__ == '__main__':
 
 
     #print(Rate(config_fp,all_data_file_name).getMultiSentenceRate())
-    '''
     num_features = FeatureAnalysis(config_fp,all_data_file_name).getFeatureNumber()
     mul_feature_name = FeatureAnalysis(config_fp,all_data_file_name).getFeatureName()
     feature_calcpearson = FeatureAnalysis(config_fp,all_data_file_name).getCalcPearson(num_features)
+    print(feature_calcpearson)
     '''
     num_features = FeatureAnalysis(config_fp,all_data_file_name).getFeatureNumber()
     mul_feature_name = FeatureAnalysis(config_fp,all_data_file_name).getFeatureName()
     FeatureAnalysis(config_fp,all_data_file_name).checkFeature(num_features,num_sample,mul_feature_name)
+    '''
     print("I am ok")

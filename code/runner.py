@@ -224,7 +224,6 @@ class SingleExec(Runner):
                                            self.config.get('FEATURE', 'feature_selected').split(),
                                            self.config.get('FEATURE', 'online_rawset_name'),
                                            self.config.get('FEATURE', 'will_save'))
-
         model = Model.new(self.config.get('MODEL', 'model_name'), self.config)
         model_fp = self.config.get('DIRECTORY', 'model_pt') + '/se.%s.model' % self.config.get('MODEL', 'model_name')
         model.load(model_fp)
@@ -246,7 +245,7 @@ class CrossValidation(Runner):
         return cv_num, cv_tag
 
     def __generate_index(self, row_num):
-        index_all = [list()] * self.cv_num
+        index_all = [[] for i in range(self.cv_num)]
         for i in range(row_num):
             index_all[int(random.random() * self.cv_num)].append(i)
         for i in range(self.cv_num):
@@ -413,12 +412,25 @@ class CrossValidation(Runner):
                                            self.config.get('FEATURE', 'feature_selected').split(),
                                            self.config.get('FEATURE', 'online_rawset_name'),
                                            self.config.get('FEATURE', 'will_save'))
-        pre_pt = self.config.get('DIRECTORY', 'data_pt') + '/out/' + self.config.get('DIRECTORY', 'model_tag')
+        cv_tag = self.config.get('CROSS_VALIDATION', 'cv_tag')
+        if cv_tag == '':
+            pred_pt = self.config.get('DIRECTORY', 'pred_pt') 
+            model_pt = self.config.get('DIRECTORY', 'model_pt')
+        else:
+            pred_pt = self.config.get('DIRECTORY', 'data_pt') + '/out/' + cv_tag + '/pred/'
+            model_pt = self.config.get('DIRECTORY', 'data_pt') + '/out/' + cv_tag + '/model'
+        avg_online_preds = np.zeros(5000)
         for fold_id in range(self.cv_num):
             model = Model.new(self.config.get('MODEL', 'model_name'), self.config)
-            model_fp = pre_pt + 'model/cv_n%d_f%d.%s.model' % (self.cv_num,fold_id,self.config.get('MODEL', 'model_name'))
+            model_fp = model_pt + '/cv_n%d_f%d.%s.model' % (self.cv_num,fold_id,self.config.get('MODEL', 'model_name'))
             model.load(model_fp)
             online_preds = model.predict(online_features)
-            online_preds_fp = pre_pt + 'pred/cv_n%d_f%d_online.%s.pred' % (self.cv_num,fold_id,self.config.get('FEATURE', 'online_rawset_name'))
+            online_preds_fp = pred_pt + 'cv_n%d_f%d_online.%s.pred' % (self.cv_num,fold_id,self.config.get('FEATURE', 'online_rawset_name'))
+            print(fold_id,"test mean ",Evaluator.mean_value(online_preds))
+            avg_online_preds += online_preds
             DataUtil.save_vector(online_preds_fp, online_preds, 'w')
+        avg_online_preds /= self.cv_num
+        print("test avg mean: ", Evaluator.mean_value(avg_online_preds))
+        avg_online_preds_fp = pred_pt + 'avg_online.%s.pred' % (self.config.get('FEATURE', 'online_rawset_name'))
+        DataUtil.save_vector(avg_online_preds_fp, avg_online_preds, 'w')
 

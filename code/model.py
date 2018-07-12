@@ -18,7 +18,6 @@ import pandas as pd
 
 from utils import LogUtil
 
-
 class Model(object):
     valid_model_name = ['XGB','LogisticRegression','RandomForest','GradientBoost']
 

@@ -91,7 +91,7 @@ class WordMatchShare(Extractor):
         if 1e-6 > n_tol:
             return [0.]
         else:
-            return [1.0 * (n_shared_word_in_q1 + n_shared_word_in_q2) / n_tol]
+            return [round(1.0 * (n_shared_word_in_q1 + n_shared_word_in_q2) / n_tol,4)]
 
     def get_feature_num(self):
         return 1
@@ -325,6 +325,8 @@ class NgramDiceDistance(Extractor):
         for n in range(1, 4):
             q1_ngrams = NgramUtil.ngrams(q1_words, n)
             q2_ngrams = NgramUtil.ngrams(q2_words, n)
+            print(q1_ngrams)
+            print(q2_ngrams)
             fs.append(DistanceUtil.dice_dist(q1_ngrams, q2_ngrams))
         return fs
 
@@ -861,25 +863,48 @@ class cityblock_distance_ave_idf(Extractor):
         sent1_vectors = self.sent2vec_ave_idf(q1_words)
         sent2_vectors = self.sent2vec_ave_idf(q2_words)
         x,y = np.nan_to_num(sent1_vectors), np.nan_to_num(sent2_vectors)
-        return [cityblock(x, y),jaccard(x, y),cosine(x, y),canberra(x, y),euclidean(x, y),braycurtis(x, y),minkowski(x, y, 3),skew(x),skew(y),kurtosis(x),kurtosis(y)]
+        return [cityblock(x, y),jaccard(x, y),cosine(x, y),canberra(x, y),euclidean(x, y),braycurtis(x, y),minkowski(x, y, 3),scipy.stats.pearsonr(x,y)[0],scipy.stats.spearmanr(x, y)[0],scipy.stats.kendalltau(x, y)[0],skew(x),skew(y),kurtosis(x),kurtosis(y)]
     def get_feature_num(self):
-        return 11
+        return 14
+
+class lcs_diff(Extractor):
+    def extract_row(self, row):
+        sen1 = (str(row['spanish_sentence1']).lower().split())
+        sen2 = (str(row['spanish_sentence2']).lower().split())
+        len1 = len(sen1)
+        len2 = len(sen2)
+
+        dp = [ [ 0 for j in range(len2) ] for i in range(len1) ]
+        offset = 0
+        for i in range(1,len1):
+            for j in range(1,len2):
+                if sen1[i] == sen2[j]:
+                    dp[i][j] = dp[i-1][j-1] + 1
+                    of = abs(j - i)
+                    offset += of
+                else:
+                    dp[i][j] = max(dp[i-1][j], dp[i][j-1])
+        return [offset * 1.0 / (len1 + len2)]
+
+    def get_feature_num(self):
+        return 1
 
 def demo():
     #Need_change
+    #edit_dist 
     config_fp = '../conf/featwheel.conf'
-    #precess_file_name = 'preprocessing_train_merge.csv'
-    precess_file_name = 'preprocessing_test.csv'
+    precess_file_name = 'preprocessing_train_merge.csv'
+    #precess_file_name = 'preprocessing_test.csv'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
     devel_pt = config.get('DIRECTORY', 'devel_pt')
     fp_powerword = '%s/%s.txt' % (devel_pt,'words_power')
     begin_index = int(config.get('FEATURE', 'begin_index'))
     end_index = int(config.get('FEATURE', 'end_index'))
-    TFIDF(config_fp).extract(precess_file_name)
+    NgramDistance(config_fp,'compression_dist').extract(precess_file_name)
+    
     #cityblock_distance_ave_idf(config_fp).extract(precess_file_name)
    
-    
     '''
     long_common_sequence(config_fp).extract(precess_file_name)
     long_common_prefix(config_fp).extract(precess_file_name)

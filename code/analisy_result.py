@@ -78,7 +78,7 @@ if __name__ == '__main__':
     index_fp = './se_valid.preprocessing_train_merge.csv.index'
     predict_fp = './se_valid.preprocessing_train_merge.csv.pred'
     save_pt = './result_analyse.csv'
-    online_preds_fp = './se_online.preprocessing_test.csv.pred'
+    online_preds_fp = './1.txt'
     #print(FileProcess(config_fp,all_data_file_name).mergePredictAndReal(index_fp,predict_fp,save_pt))
     PostProcessor().rescale(online_preds_fp)
     print("I am ok")

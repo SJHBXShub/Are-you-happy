@@ -58,12 +58,9 @@ class Extractor(object):
         feature_file = open(self.data_feature_fp, 'w')
         feature_file.write('%d %d\n' % (end_id - begin_id, int(self.get_feature_num())))
         # extract feature
-        pos_num = 1
-        neg_num = 1
-        pos_val = 0
-        neg_val = 0
         for index, row in data[begin_id:end_id].iterrows():
             feature = self.extract_row(row)
+            #print(feature)
             Feature.save_feature(feature, feature_file)
         feature_file.close()
 
