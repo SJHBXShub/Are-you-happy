@@ -31,7 +31,7 @@ class Extractor(object):
     def extract_row(self, row):
         assert False, 'Please override function: Extractor.extract_row()'
     
-    def extract(self, data_set_name, part_num=1, part_id=0):
+    def extract(self, data_set_name, data_version='', part_num=1, part_id=0):
         """
         Extract the feature from original data set
         :param data_set_name: name of data set
@@ -40,7 +40,8 @@ class Extractor(object):
         :return:
         """
         # load data set from disk
-        data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), data_set_name)).fillna(value="")
+        data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'+data_version), data_set_name),encoding='UTF-8').fillna(value="")
+        
         begin_id = int(1. * len(data) / part_num * part_id)
         end_id = int(1. * len(data) / part_num * (part_id + 1))
 
@@ -57,12 +58,14 @@ class Extractor(object):
 
         feature_file = open(self.data_feature_fp, 'w')
         feature_file.write('%d %d\n' % (end_id - begin_id, int(self.get_feature_num())))
+
         # extract feature
         for index, row in data[begin_id:end_id].iterrows():
             feature = self.extract_row(row)
-            #print(feature)
             Feature.save_feature(feature, feature_file)
+
         feature_file.close()
 
         LogUtil.log('INFO',
                     'save features (%s, %s, %d, %d) done' % (self.feature_name, data_set_name, part_num, part_id))
+        

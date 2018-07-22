@@ -7,9 +7,7 @@ from os.path import isfile
 
 import numpy as np
 from scipy.sparse import csr_matrix, hstack, vstack
-
 from utils import LogUtil
-
 
 class Feature(object):
 

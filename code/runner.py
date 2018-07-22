@@ -11,29 +11,19 @@ import random
 import time
 import numpy as np
 
-from utils import LogUtil, DataUtil
+from utils import LogUtil, DataUtil, MyUtil
 from evaluator import Evaluator
 from feature import Feature
 from model import Model
 
-
 class Runner(object):
     def __init__(self, config_fp):
-        # load configuration file
+        self.config_fp = config_fp
         self.config = ConfigParser.ConfigParser()
         self.config.read(config_fp)
         self.__init_out_dir()
 
-
     def generate_data(indexs, labels, features, positive_rate):
-        """
-        generate data set according to the `indexs` and `positive_rate`
-        :param indexs: indexs which will select data from raw data set
-        :param labels: all labels of raw data set
-        :param features: feature matrix
-        :param positive_rate: positive_rate in data set
-        :return: feature matrix, labels, balanced indexs
-        """
         # balance the data set
         #balanced_indexs = Feature.balance_index(indexs, labels, positive_rate)
         balanced_indexs = indexs
@@ -165,13 +155,21 @@ class SingleExec(Runner):
 
         model = Model.new(self.config.get('MODEL', 'model_name'), self.config)
         model_fp = self.config.get('DIRECTORY', 'model_pt') + '/se.%s.model' % self.config.get('MODEL', 'model_name')
-        offline_train_preds, offline_valid_preds, offline_test_preds = model.fit(offline_train_features,
+        offline_train_preds, offline_valid_preds, offline_test_preds,features_importance= model.fit(
+                                                                                 offline_train_features,
                                                                                  offline_train_labels,
                                                                                  offline_valid_features,
                                                                                  offline_valid_labels,
                                                                                  offline_test_features,
                                                                                  offline_test_labels)
-
+        
+        mul_feature_name = MyUtil.getFeatureName(self.config_fp)
+        merge_featurename_importance = []
+        merge_featurename_importance.append(mul_feature_name)
+        merge_featurename_importance.append(features_importance*100)
+        DataUtil.printVectors(merge_featurename_importance)
+        
+        
         offline_train_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                  offline_train_labels,
                                                  offline_train_preds)
@@ -182,26 +180,26 @@ class SingleExec(Runner):
         offline_test_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                 offline_test_labels,
                                                 offline_test_preds)
-        offline_train_pre_mean = Evaluator.mean_value(offline_train_preds)
-        offline_valid_pre_mean = Evaluator.mean_value(offline_valid_preds)
-        offline_test_pre_mean = Evaluator.mean_value(offline_test_labels)
-        offline_train_label_mean = Evaluator.mean_value(offline_train_labels)
-        offline_valid_label_mean = Evaluator.mean_value(offline_valid_labels)
-        offline_test_label_mean = Evaluator.mean_value(offline_test_labels)
-
-
+        offline_train_acc = Evaluator.accuracy(offline_train_labels,offline_train_preds)
+        offline_valid_acc = Evaluator.accuracy(offline_valid_labels,offline_valid_preds)
+        offline_test_acc = Evaluator.accuracy(offline_test_labels,offline_test_preds)
+        Evaluator.analysis_result(offline_valid_labels,offline_valid_preds)
+        print("valid predict mean",Evaluator.mean_value(offline_valid_preds))
+        print("valid real mean",Evaluator.mean_value(offline_valid_labels))
         model.save(model_fp = model_fp)
         score_fp = '%s/%s.score' % (self.config.get('DIRECTORY', 'score_pt'), 'cv')
         score_file = open(score_fp, 'a')
         score_file.write('single_exec\ttrain:%s\tvalid:%s\ttest:%s\n' % (offline_train_score,
                                                                          offline_valid_score,
                                                                          offline_test_score))
-        score_file.write('offline_train_pre_mean:%s\toffline_train_label_mean:%s\n'
-                          'offline_valid_pre_mean:%s\toffline_valid_label_mean:%s\n'
-                          'offline_test_pre_mean:%s\toffline_test_label_mean:%s\n' %
-                          (offline_train_pre_mean,offline_train_label_mean,
-                            offline_valid_pre_mean,offline_valid_label_mean,
-                            offline_test_pre_mean,offline_test_label_mean))
+        print('==score single_exec\ttrain:%s\tvalid:%s\ttest:%s\n' % (offline_train_score,
+                                                            offline_valid_score,
+                                                            offline_test_score))
+        print('==accuracy single_exec\ttrain:%s\tvalid:%s\ttest:%s\n' % (offline_train_acc,
+                                                            offline_valid_acc,
+                                                            offline_test_acc))
+
+        
         score_file.close()
         # save prediction results
         offline_valid_preds_fp = '%s/se_valid.%s.pred' % (self.config.get('DIRECTORY', 'pred_pt'),
@@ -354,13 +352,22 @@ class CrossValidation(Runner):
                                                                   (self.cv_num,
                                                                    fold_id,
                                                                    self.config.get('MODEL', 'model_name'))
-            
-            offline_train_preds, offline_valid_preds, offline_test_preds = model.fit(offline_train_features,
+            try:
+                offline_train_preds, offline_valid_preds, offline_test_preds = model.fit(offline_train_features,
                                                                                      offline_train_labels,
                                                                                      offline_valid_features,
                                                                                      offline_valid_labels,
                                                                                      offline_test_features,
                                                                                      offline_test_labels)
+            except:
+                offline_train_preds, offline_valid_preds, offline_test_preds,_= model.fit(offline_train_features,
+                                                                                     offline_train_labels,
+                                                                                     offline_valid_features,
+                                                                                     offline_valid_labels,
+                                                                                     offline_test_features,
+                                                                                     offline_test_labels)
+
+
             model.save(model_fp)
 
             offline_train_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
@@ -401,6 +408,7 @@ class CrossValidation(Runner):
         offline_test_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                 offline_labels,
                                                 offline_test_preds_all)
+        LogUtil.log("valid score and test score", '(%s)(%s)' % (offline_valid_score, offline_test_score))
         score_fp = '%s/%s.score' % (self.config.get('DIRECTORY', 'score_pt'), 'cv')
         score_file = open(score_fp, 'a')
         score_file.write('cross_validation\tvalid:%s\ttest:%s\n' % (offline_valid_score, offline_test_score))

@@ -84,9 +84,7 @@ class LDADecomposition(Extractor):
 
         # cal similarity of q1 & q2
         # cosine_similarity
-        fs = list()
-        # print(cosine_similarity(lda1, lda2, dense_output=True)[0])
-        fs.append(cosine_similarity(lda1, lda2, dense_output=True)[0])
+        
         return cosine_similarity(lda1, lda2, dense_output=True)[0].tolist()
 
     def get_feature_num(self):
@@ -122,10 +120,7 @@ class SVDDecomposition(Extractor):
 
         # cal similarity of q1 & q2
         # cosine_similarity
-        fs = list()
-        # print(cosine_similarity(svd1, svd2, dense_output=True)[0])
-        fs.append(cosine_similarity(svd1, svd2, dense_output=True)[0])
-        return fs
+        return cosine_similarity(svd1, svd2, dense_output=True)[0].tolist()
     def get_feature_num(self):
         return 1
 
@@ -147,8 +142,11 @@ def demo(n_components=50):
     print("Extracting tf features for LDA...")
     TFCount_model = TFCount(config_fp)
     tf, tf_result = TFCount_model.tf, TFCount_model.tf_result
-    #SVDDecomposition(config_fp, n_components=n_components, tf_idf=tf_idf, tf_idf_result=tf_idf_result).extract('preprocessing_train_merge.csv')
-    #NMFDecomposition(config_fp, n_components=n_components, tf_idf=tf_idf, tf_idf_result=tf_idf_result).extract('preprocessing_test.csv')
+    SVDDecomposition(config_fp, n_components=n_components, tf_idf=tf_idf, tf_idf_result=tf_idf_result).extract('preprocessing_train_merge.csv')
+    NMFDecomposition(config_fp, n_components=n_components, tf_idf=tf_idf, tf_idf_result=tf_idf_result).extract('preprocessing_train_merge.csv')
+    LDADecomposition(config_fp, n_components=n_components, tf=tf, tf_result=tf_result).extract('preprocessing_train_merge.csv')
+    SVDDecomposition(config_fp, n_components=n_components, tf_idf=tf_idf, tf_idf_result=tf_idf_result).extract('preprocessing_test.csv')
+    NMFDecomposition(config_fp, n_components=n_components, tf_idf=tf_idf, tf_idf_result=tf_idf_result).extract('preprocessing_test.csv')
     LDADecomposition(config_fp, n_components=n_components, tf=tf, tf_result=tf_result).extract('preprocessing_test.csv')
 
 

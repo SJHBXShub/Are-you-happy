@@ -18,6 +18,7 @@ import configparser as ConfigParser
 
 from utils import NgramUtil, DistanceUtil, LogUtil, MathUtil
 from utils import MISSING_VALUE_NUMERIC
+from analisy_data import Graph
 
 from extractor import Extractor
 from preprocessor import TextPreProcessor
@@ -125,6 +126,7 @@ class TFIDFWordMatchShare(Extractor):
         self.conf.read(config)
 
         train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")
+        test_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_test_csv'))).fillna(value="")
         self.idf = TFIDFWordMatchShare.init_idf(train_data)
 
     @staticmethod
@@ -206,6 +208,70 @@ class LengthDiffRate(Extractor):
 
     def get_feature_num(self):
         return 1
+
+class TFIDFSpanish(Extractor):
+    def __init__(self, config):
+        Extractor.__init__(self, config)
+        self.conf = ConfigParser.ConfigParser()
+        self.conf.read(config)
+
+        train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")
+        test_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_test_csv'))).fillna(value="")
+        self.idf = TFIDFWordMatchShare.init_idf(train_data)
+
+    @staticmethod
+    def init_idf(data):
+        idf = {}
+        q_set = set()
+        for index, row in data.iterrows():
+            q1 = str(row['spanish_sentence1'])
+            q2 = str(row['spanish_sentence2'])
+            if q1 not in q_set:
+                q_set.add(q1)
+                words = q1.lower().split()
+                for word in words:
+                    idf[word] = idf.get(word, 0) + 1
+            if q2 not in q_set:
+                q_set.add(q2)
+                words = q2.lower().split()
+                for word in words:
+                    idf[word] = idf.get(word, 0) + 1
+        num_docs = len(data)
+        for word in idf:
+            idf[word] = math.log(num_docs / (idf[word] + 1.)) / math.log(2.)
+        LogUtil.log("INFO", "idf calculation done, len(idf)=%d" % len(idf))
+        return idf
+
+    def extract_row(self, row):
+        q1words = {}
+        q2words = {}
+        for word in str(row['spanish_sentence1']).lower().split():
+            if word not in stops:
+                q1words[word] = q1words.get(word, 0) + 1
+        for word in str(row['spanish_sentence2']).lower().split():
+            if word not in stops:
+                q2words[word] = q2words.get(word, 0) + 1
+        fs = []
+        sum_tfidf_q1 = sum([q1words[w] * self.idf.get(w, 0) for w in q1words])
+        sum_tfidf_q2 = sum([q2words[w] * self.idf.get(w, 0) for w in q2words])
+        if len(q1words) != 0:
+            avg_tfidf_q1 = sum([q1words[w] * self.idf.get(w, 0) for w in q1words])/len(q1words)
+        else:
+            avg_tfidf_q1 = 0
+
+        if len(q2words) != 0:
+            avg_tfidf_q2 = sum([q2words[w] * self.idf.get(w, 0) for w in q2words])/len(q2words)
+        else:
+            avg_tfidf_q2 = 0
+
+        fs.append(sum_tfidf_q1)
+        fs.append(sum_tfidf_q2)
+        fs.append(avg_tfidf_q1)
+        fs.append(avg_tfidf_q2)
+        return fs
+
+    def get_feature_num(self):
+        return 4
 
 class TFIDF(Extractor):
     def __init__(self, config_fp):
@@ -325,8 +391,6 @@ class NgramDiceDistance(Extractor):
         for n in range(1, 4):
             q1_ngrams = NgramUtil.ngrams(q1_words, n)
             q2_ngrams = NgramUtil.ngrams(q2_words, n)
-            print(q1_ngrams)
-            print(q2_ngrams)
             fs.append(DistanceUtil.dice_dist(q1_ngrams, q2_ngrams))
         return fs
 
@@ -354,7 +418,6 @@ class Distance(Extractor):
         q1_stem = q1_stem.replace("'","")
         q2_stem = q2_stem.replace("b'","")
         q2_stem = q2_stem.replace("'","")
-
         return [self.distance_func(q1, q2), self.distance_func(q1_stem, q2_stem)]
 
     def get_feature_num(self):
@@ -395,10 +458,8 @@ class PhraseToSentenceDistance(Extractor):
 class NgramDistance(Distance):
 
     def extract_row(self, row):
-        q1_words = [snowball_stemmer.stem(word).encode('utf-8') for word in
-                    nltk.word_tokenize(TextPreProcessor.clean_text(str(row['spanish_sentence1'])))]
-        q2_words = [snowball_stemmer.stem(word).encode('utf-8') for word in
-                    nltk.word_tokenize(TextPreProcessor.clean_text(str(row['spanish_sentence2'])))]
+        q1_words = [nltk.word_tokenize(str(row['spanish_sentence1']))]
+        q2_words = [nltk.word_tokenize(str(row['spanish_sentence2']))]
 
         fs = list()
         aggregation_modes_outer = ["mean", "max", "min", "median"]
@@ -406,7 +467,6 @@ class NgramDistance(Distance):
         for n_ngram in range(1, 5):
             q1_ngrams = NgramUtil.ngrams(q1_words, n_ngram)
             q2_ngrams = NgramUtil.ngrams(q2_words, n_ngram)
-
             val_list = list()
             for w1 in q1_ngrams:
                 _val_list = list()
@@ -428,6 +488,23 @@ class NgramDistance(Distance):
 
     def get_feature_num(self):
         return 4 * 5
+
+class NgramOverlapDistance(Extractor):
+    def extract_row(self, row):
+        q1_words = nltk.word_tokenize(str(row['spanish_sentence1']))
+        q2_words = nltk.word_tokenize(str(row['spanish_sentence2']))
+        q1_char = ''.join(q1_words)
+        q2_char = ''.join(q2_words)
+
+        fs = []
+        for n_ngram in range(1, 4):
+            fs.append(DistanceUtil.n_gram_over_lap(q1_words, q2_words, n_ngram))
+        for n_ngram in range(1, 4):
+            fs.append(DistanceUtil.n_gram_over_lap(q1_char,q2_char,n_ngram))
+        return fs
+
+    def get_feature_num(self):
+        return 6
 
 class PowerfulWord(object):
     def __init__(self, config_fp):
@@ -810,7 +887,8 @@ class levenshtein_distance(Extractor):
     def get_feature_num(self):
         return 1
 
-class cityblock_distance_ave_idf(Extractor):
+class RepresenWordToVectorSentenceDistance(Extractor):
+    #需要提前准备 word to vec
     def __init__(self, config_fp):
         Extractor.__init__(self, config_fp)
         words_pt = '%s/%s' % (self.config.get('DIRECTORY', 'source_pt'), self.config.get('FILE_NAME', 'words_txt'))
@@ -822,7 +900,7 @@ class cityblock_distance_ave_idf(Extractor):
     
     def getWordsDict(self,words_pt):
         words_dict = {}
-        with open(words_pt,'r') as f_in:
+        with open(words_pt,'r',encoding='utf-8') as f_in:
             for raw_line in f_in:
                 line = raw_line.strip('\n').split()
                 if len(line) != 2:
@@ -832,16 +910,14 @@ class cityblock_distance_ave_idf(Extractor):
     
     def getWord2VecDict(self,word2vec_pt):
         word2vec_dict = {}
-        with open(word2vec_pt,'r') as f_in:
+        with open(word2vec_pt,'r',encoding='utf-8') as f_in:
             for raw_line in f_in:
                 line = raw_line.strip('\n\r').split()
-                if line[0] in self.words_dict and line[1] not in self.words_dict:
-                    #print(line[1:])
+                if True:
                     try:
                         word2vec_dict[line[0]] = [float(i) for i in line[1:]]
                     except:
                         continue
-                    #word2vec_dict[line[0]] = [float(i) for i in line[1:]]
         return word2vec_dict
 
     def sent2vec_ave_idf(self,sen):
@@ -849,7 +925,8 @@ class cityblock_distance_ave_idf(Extractor):
         words = sen
         for w in words:
             try:
-                M.append([ self.words_dict[w] * x for x in self.word2vec_dict[w] ])
+                #M.append([ self.words_dict[w] * x for x in self.word2vec_dict[w] ])
+                M.append([ 1.0 * x for x in self.word2vec_dict[w] ])
             except:
                 continue
         M = np.array(M)
@@ -858,8 +935,8 @@ class cityblock_distance_ave_idf(Extractor):
         return v / num
 
     def extract_row(self, row):
-        q1_words = str(row['spanish_sentence1']).lower().split()
-        q2_words = str(row['spanish_sentence2']).lower().split()
+        q1_words = nltk.word_tokenize(str(row['spanish_sentence1']).lower())
+        q2_words = nltk.word_tokenize(str(row['spanish_sentence2']).lower())
         sent1_vectors = self.sent2vec_ave_idf(q1_words)
         sent2_vectors = self.sent2vec_ave_idf(q2_words)
         x,y = np.nan_to_num(sent1_vectors), np.nan_to_num(sent2_vectors)
@@ -889,9 +966,158 @@ class lcs_diff(Extractor):
     def get_feature_num(self):
         return 1
 
+class RepresenOneHotSentenceDistance(Extractor):
+    def extract_row(self, row):
+        sen1 = (str(row['spanish_sentence1']).lower().split())
+        sen2 = (str(row['spanish_sentence2']).lower().split())
+        words = {}
+        pos = 0
+        for word in (sen1 + sen2):
+            if word not in words:
+                words[word] = pos
+                pos += 1
+        sen_vec_1 = [ 0 for i in range(pos) ]
+        sen_vec_2 = [ 0 for i in range(pos) ]
+        for word in sen1:
+            sen_vec_1[words[word]] = 1
+        for word in sen2:
+            sen_vec_2[words[word]] = 1
+        return [DistanceUtil.cosine_sim(np.array(sen_vec_1), np.array(sen_vec_2))]
+
+    def get_feature_num(self):
+        return 1
+
+class RepresenOneHotIdfSentenceDistance(Extractor):
+#需要提前根据train 和 test计算出每个单词的idf 
+    def __init__(self, config_fp):
+        Extractor.__init__(self, config_fp)
+        #words_pt = '%s/%s' % (self.config.get('DIRECTORY', 'source_pt'), self.config.get('FILE_NAME', 'words_txt'))
+        #self.words_dict = self.getWordsDict(words_pt=words_pt)
+        train_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_train_merge_csv'))).fillna(value="")
+        test_data = pd.read_csv('%s/%s' % (self.config.get('DIRECTORY', 'csv_spanish_cleaning_pt'), self.config.get('FILE_NAME', 'preprocessing_test_csv'))).fillna(value="")
+        self.idf = TFIDFWordMatchShare.init_idf(train_data)
+    '''
+    def getWordsDict(self,words_pt):
+        words_dict = {}
+        with open(words_pt,'r') as f_in:
+            for raw_line in f_in:
+                line = raw_line.strip('\n').split()
+                if len(line) != 2:
+                    continue
+                words_dict[line[0]] = float(line[1])
+        return words_dict
+    '''
+
+    @staticmethod
+    def init_idf(data):
+        idf = {}
+        q_set = set()
+        for index, row in data.iterrows():
+            q1 = str(row['spanish_sentence1'])
+            q2 = str(row['spanish_sentence2'])
+            if q1 not in q_set:
+                q_set.add(q1)
+                words = q1.lower().split()
+                for word in words:
+                    idf[word] = idf.get(word, 0) + 1
+            if q2 not in q_set:
+                q_set.add(q2)
+                words = q2.lower().split()
+                for word in words:
+                    idf[word] = idf.get(word, 0) + 1
+        num_docs = len(data)
+        for word in idf:
+            idf[word] = math.log(num_docs / (idf[word] + 1.)) / math.log(2.)
+        LogUtil.log("INFO", "idf calculation done, len(idf)=%d" % len(idf))
+        return idf
+
+    def extract_row(self, row):
+        sen1 = (str(row['spanish_sentence1']).lower().split())
+        sen2 = (str(row['spanish_sentence2']).lower().split())
+        words = {}
+        pos = 0
+        for word in (sen1 + sen2):
+            if word not in words:
+                words[word] = pos
+                pos += 1
+        sen_vec_1 = [ 0 for i in range(pos) ]
+        sen_vec_2 = [ 0 for i in range(pos) ]
+        for word in sen1:
+            try:
+                sen_vec_1[words[word]] = self.idf.get(word, 0)
+            except:
+                sen_vec_1[words[word]] = 0
+        for word in sen2:
+            try:
+                sen_vec_2[words[word]] = self.idf.get(word, 0)
+                #sen_vec_2[words[word]] = self.words_dict[word]
+            except:
+                sen_vec_2[words[word]] = 0
+
+        return [DistanceUtil.cosine_sim(np.array(sen_vec_1), np.array(sen_vec_2))]
+
+    def get_feature_num(self):
+        return 1
+
+class BothSentencesInSameSubGraph(Extractor):
+    def __init__(self, config_fp):
+        Extractor.__init__(self, config_fp)
+        #self.graph_result = Graph(config_fp).buildGraph()
+        self.graph_result = [[['impuestos']],[['Cómo'],['reporto','enviar','informar','reportar','informo'],['proveedor']],[['hacer','Cómo'],['pedido']],[['bancaria']],
+[['Quiero'],['pagar']], [['no','ni','nunca'],['pedido']], [['Donde'],['cupones']],[['número'],['teléfono']],[['Recibí'],['pedido']],
+[['recibí','recibido'],['no','ni','nunca']],[['confiable'],['vendedor','proveedor']],[['protección'],['comprador','compra']],[['mi'],['pregunta']]]
+
+    def sentenceInSetByPeopelGraphResult(sen):
+        words = sen.lower().strip('¿').split()
+        for sub_graph in self.graph_result:
+            flag = 0
+            for andSection in sub_graph:
+                for orWord in andSection:
+                    if orWord.lower() in words:
+                        flag += 1
+                        break
+            if flag == len(sub_graph):
+                return True
+        return False
+
+    def bothSentencesInSameSubGraph(self,graph_result,sen1,sen2):
+        if sentenceInSetByPeopelGraphResult(sen1) and sentenceInSetByPeopelGraphResult(sen2):
+            return True
+        return  False
+
+    def singleSentencesInSameSubGraph(self,graph_result,sen1,sen2):
+        if (sentenceInSetByPeopelGraphResult(sen1) and not sentenceInSetByPeopelGraphResult(sen2)) or (not sentenceInSetByPeopelGraphResult(sen1) and sentenceInSetByPeopelGraphResult(sen2)):
+             return True
+        return False
+
+    def noneSentencesInSameSubGraph(self,graph_result,sen1,sen2):
+        if sentenceInSetByPeopelGraphResult(sen1) or sentenceInSetByPeopelGraphResult(sen2):
+            return False
+        return  True
+
+    def extract_row(self, row):
+        bothInSameSubGraph = 0
+        singleInSameSubGraph = 0
+        noneInSameSubGraph = 0
+        sen1 = str(row['spanish_sentence1']).strip()
+        sen2 = str(row['spanish_sentence2']).strip()
+        if self.bothSentencesInSameSubGraph(self.graph_result,sen1,sen2):
+            bothInSameSubGraph = 1
+        if self.singleSentencesInSameSubGraph(self.graph_result,sen1,sen2):
+            singleInSameSubGraph = 1
+        if self.noneSentencesInSameSubGraph(self.graph_result,sen1,sen2):
+            noneInSameSubGraph = 1
+        fs = []
+        fs.append(bothInSameSubGraph)
+        fs.append(singleInSameSubGraph)
+        fs.append(noneInSameSubGraph)
+        return fs
+
+    def get_feature_num(self):
+        return 3
+
+
 def demo():
-    #Need_change
-    #edit_dist 
     config_fp = '../conf/featwheel.conf'
     precess_file_name = 'preprocessing_train_merge.csv'
     #precess_file_name = 'preprocessing_test.csv'
@@ -901,16 +1127,29 @@ def demo():
     fp_powerword = '%s/%s.txt' % (devel_pt,'words_power')
     begin_index = int(config.get('FEATURE', 'begin_index'))
     end_index = int(config.get('FEATURE', 'end_index'))
-    NgramDistance(config_fp,'compression_dist').extract(precess_file_name)
-    
-    #cityblock_distance_ave_idf(config_fp).extract(precess_file_name)
-   
     '''
-    long_common_sequence(config_fp).extract(precess_file_name)
-    long_common_prefix(config_fp).extract(precess_file_name)
-    long_common_suffix(config_fp).extract(precess_file_name)
-    long_common_substring(config_fp).extract(precess_file_name)
-    levenshtein_distance(config_fp).extract(precess_file_name)
+    WordMatchShare(config_fp).extract(precess_file_name)
+    TFIDFWordMatchShare(config_fp).extract(precess_file_name)
+    Length(config_fp).extract(precess_file_name)
+    LengthDiff(config_fp).extract(precess_file_name)
+    LengthDiffRate(config_fp).extract(precess_file_name)
+    DulNum(config_fp).extract(precess_file_name)
+    TFIDF(config_fp).extract(precess_file_name)
+    EnCharCount(config_fp).extract(precess_file_name)
+    NgramJaccardCoef(config_fp).extract(precess_file_name)
+    NgramDiceDistance(config_fp).extract(precess_file_name)
+    result = PowerfulWord.generate_powerful_word(config_fp,begin_index,end_index)
+    PowerfulWord.save_powerful_word(result,fp_powerword)
+    #PowerfulWordDoubleSide(config_fp).extract(precess_file_name)
+    #PowerfulWordOneSide(config_fp).extract(precess_file_name)
+    PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
+    PowerfulWordOneSideRate(config_fp).extract(precess_file_name)
+    NgramOverlapDistance(config_fp).extract(precess_file_name)
+    NgramDistance(config_fp,'edit_dist').extract(precess_file_name)
+    Not(config_fp).extract(precess_file_name)'''
+    '''
+    TFIDFSpanish(config_fp).extract(precess_file_name)
+    PhraseToSentenceDistance(config_fp,'edit_dist').extract(precess_file_name)
     fuzz_QRatio(config_fp).extract(precess_file_name)
     fuzz_WRatio(config_fp).extract(precess_file_name)
     fuzz_partial_ratio(config_fp).extract(precess_file_name)
@@ -918,50 +1157,22 @@ def demo():
     fuzz_partial_token_sort_ratio(config_fp).extract(precess_file_name)
     fuzz_token_set_ratio(config_fp).extract(precess_file_name)
     fuzz_token_sort_ratio(config_fp).extract(precess_file_name)
-    Not(config_fp).extract(precess_file_name)
-    WordMatchShare(config_fp).extract(precess_file_name)
-    TFIDFWordMatchShare(config_fp).extract(precess_file_name)
-    Length(config_fp).extract(precess_file_name)
-    LengthDiff(config_fp).extract(precess_file_name)
-    LengthDiffRate(config_fp).extract(precess_file_name)
-    TFIDF(config_fp).extract(precess_file_name)
-    NgramJaccardCoef(config_fp).extract(precess_file_name)
-    NgramDiceDistance(config_fp).extract(precess_file_name)
-    EnCharCount(config_fp).extract(precess_file_name)
-    DulNum(config_fp).extract(precess_file_name)
+    long_common_sequence(config_fp).extract(precess_file_name)
+    long_common_prefix(config_fp).extract(precess_file_name)
+    long_common_suffix(config_fp).extract(precess_file_name)
+    long_common_substring(config_fp).extract(precess_file_name)
+    levenshtein_distance(config_fp).extract(precess_file_name)
+    lcs_diff(config_fp).extract(precess_file_name)
+    RepresenWordToVectorSentenceDistance(config_fp).extract(precess_file_name, data_version = 'O')
+    RepresenOneHotSentenceDistance(config_fp).extract(precess_file_name)
+    RepresenOneHotIdfSentenceDistance(config_fp).extract(precess_file_name)'''
+    BothSentencesInSameSubGraph(config_fp).extract(precess_file_name, data_version = 'O')
+
     
-    NgramDistance(config_fp,'edit_dist').extract(precess_file_name)
-    '''
-    '''
-    result = PowerfulWord.generate_powerful_word(config_fp,begin_index,end_index)
-    PowerfulWord.save_powerful_word(result,fp_powerword)
-    '''
-    '''
-    PowerfulWordOneSideRate(config_fp).extract(precess_file_name)
-    PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
-    '''
-    '''
-    PowerfulWordDoubleSide(config_fp).extract(precess_file_name)
-    PowerfulWordOneSide(config_fp).extract(precess_file_name)
-    PowerfulWordDoubleSideRate(config_fp).extract(precess_file_name)
-    PowerfulWordOneSideRate(config_fp).extract(precess_file_name)
-    '''
 
 
 if __name__ == '__main__':
     demo()
-    '''
-    q1 = "I am a student"
-    q2 = "I love you and I am a student and you"
-    print(q2.split()[0:2])
-    if True:
-        num_word1 = len(q1.split())
-        num_word2 = len(q2.split())
-        if num_word1 < 5 and (num_word2 - num_word1) > 4 or num_word2 < 5 and (num_word1 - num_word2) > 4:
-            min_dis = 9999999999.0
-            for i in range((num_word2 - num_word1)):
-                print(q1, ' '.join(q2.split()[i:i+num_word1]))
-
-                #cur_dis = self.distance_func(q1,q2.split()[i,i+num_word1])'''
+    print("I am OK!")
                 
 

@@ -14,12 +14,13 @@ import xgboost as xgb
 from sklearn.externals import joblib
 from sklearn.linear_model import LogisticRegression as skl_logistic_regression
 from sklearn.ensemble import RandomForestClassifier,GradientBoostingClassifier
+from sklearn.neural_network import MLPClassifier
 import pandas as pd
 
 from utils import LogUtil
 
 class Model(object):
-    valid_model_name = ['XGB','LogisticRegression','RandomForest','GradientBoost']
+    valid_model_name = ['XGB','LogisticRegression','RandomForest','GradientBoost','NN']
 
     @staticmethod
     def new(model_name, config_fp):
@@ -49,7 +50,8 @@ class Model(object):
 
     def predict(self, features, labels=None):
         assert False, 'Please override function: Model.predict()'
-
+    
+    '''
     def lock(self):
         lock_name = self.config.get('MODEL', 'lock_name')
         lock_time = self.config.getint('MODEL', 'lock_time')
@@ -72,6 +74,7 @@ class Model(object):
             LogUtil.log('INFO', 'delete lock, lock_name=%s' % lock_name)
         else:
             LogUtil.log('WARNING', 'missing lock, lock_name=%s' % lock_name)
+    '''
 
 class XGB(Model):
     def __init__(self, config_fp):
@@ -118,7 +121,6 @@ class XGB(Model):
 
         watchlist = [(train_DMatrix, 'train'), (valid_DMatrix, 'valid')]
         #change_yj
-        #self.lock()
         self.model = xgb.train(self.params,
                                train_DMatrix,
                                self.params['num_round'],
@@ -231,7 +233,7 @@ class RandomForest(Model):
         params['min_samples_split'] = int(self.config.get('RANDOMFOREST', 'min_samples_split'))
         params['n_jobs'] = int(self.config.getint('RANDOMFOREST', 'n_jobs'))
         params['random_state'] = int(self.config.getint('RANDOMFOREST', 'random_state'))
-        params['loss'] = str(self.config.get('RANDOMFOREST', 'loss'))
+        params['verbose'] = int(self.config.get('RANDOMFOREST', 'verbose'))
         return params
 
     def save(self, model_fp):
@@ -250,7 +252,7 @@ class RandomForest(Model):
                                             min_samples_split = self.params['min_samples_split'], 
                                             random_state = self.params['random_state'], 
                                             n_jobs = self.params['n_jobs'],
-                                            loss = self.params['loss'])
+                                            verbose = self.params['verbose'])
 
         self.model.fit(X=train_fs, y=train_labels)
         train_preds = self.model.predict_proba(train_fs)[:, 1]
@@ -259,7 +261,6 @@ class RandomForest(Model):
         return train_preds, valid_preds, test_preds
 
     def predict(self, features, labels=None):
-        print(features)
         preds = self.model.predict_proba(features)[:, 1]
         return preds
 
@@ -296,6 +297,44 @@ class GradientBoost(Model):
         train_preds = self.model.predict_proba(train_fs)[:, 1]
         valid_preds = self.model.predict_proba(valid_fs)[:, 1]
         test_preds = self.model.predict_proba(test_fs)[:, 1]
+
+        return train_preds, valid_preds, test_preds,self.model.feature_importances_
+
+    def predict(self, features, labels=None):
+        preds = self.model.predict_proba(features)[:, 1]
+        return preds
+
+class NN(Model):
+    def __init__(self, config_fp):
+        Model.__init__(self, config_fp)
+        self.params = self.__load_parameters()
+
+    def __load_parameters(self):
+        params = dict() 
+        params['n_estimators'] = int(self.config.get('GBDT', 'n_estimators'))
+        params['loss'] = str(self.config.get('GBDT', 'loss'))
+        params['max_depth'] = int(self.config.get('GBDT', 'max_depth'))
+        params['verbose'] = int(self.config.getint('GBDT', 'verbose'))
+        return params
+
+    def save(self, model_fp):
+        joblib.dump(self.model, model_fp)
+
+    def load(self, model_fp):
+        self.model = joblib.load(model_fp)
+
+    def fit(self,
+            train_fs, train_labels,
+            valid_fs, valid_labels,
+            test_fs, test_labels):
+    
+        self.model = MLPClassifier(solver='adam', activation='tanh',learning_rate_init = 0.001,max_iter = 300,batch_size = 1000, alpha=1e-5,hidden_layer_sizes=(300,80,80,80,70,50,50,30,20,20,10,5), random_state=1,verbose=True)
+
+        self.model.fit(X=train_fs, y=train_labels)
+        train_preds = self.model.predict_proba(train_fs)[:, 1]
+        valid_preds = self.model.predict_proba(valid_fs)[:, 1]
+        test_preds = self.model.predict_proba(test_fs)[:, 1]
+
         return train_preds, valid_preds, test_preds
 
     def predict(self, features, labels=None):

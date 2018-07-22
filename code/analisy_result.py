@@ -29,7 +29,7 @@ class PostProcessor(object):
         print(PostProcessor.getResultMean(online_preds))
         for index in range(len(online_preds)):
             score = online_preds[index]
-            score = PostProcessor.adj(score, te=0.30, tr=0.25)
+            score = PostProcessor.adj(score, te=0.5, tr=0.25)
             online_preds[index] = score
         print(PostProcessor.getResultMean(online_preds))
         DataUtil.save_vector(online_preds_fp + '.rescale', online_preds, 'w')
@@ -78,7 +78,7 @@ if __name__ == '__main__':
     index_fp = './se_valid.preprocessing_train_merge.csv.index'
     predict_fp = './se_valid.preprocessing_train_merge.csv.pred'
     save_pt = './result_analyse.csv'
-    online_preds_fp = './1.txt'
+    online_preds_fp = './200_iter.txt'
     #print(FileProcess(config_fp,all_data_file_name).mergePredictAndReal(index_fp,predict_fp,save_pt))
     PostProcessor().rescale(online_preds_fp)
     print("I am ok")

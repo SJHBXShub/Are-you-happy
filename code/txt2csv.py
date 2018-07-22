@@ -45,7 +45,8 @@ def txtToCsvTrainEnglishandSpanishVersion(original_english_pt,original_spanish_p
         is_duplicateline.append(line.split("\t")[4][0])
         line = f_spanish.readline()
 
-    data_frame = pd.DataFrame({'id':id_,'qid1':qid1,'qid2':qid2,'english_sentence1':english_sentence1, 'english_sentence2':english_sentence2, 'spanish_sentence1':spanish_sentence1, 'spanish_sentence2':spanish_sentence2, 'is_duplicateline':is_duplicateline})
+    #data_frame = pd.DataFrame({'id':id_,'qid1':qid1,'qid2':qid2,'english_sentence1':english_sentence1, 'english_sentence2':english_sentence2, 'spanish_sentence1':spanish_sentence1, 'spanish_sentence2':spanish_sentence2, 'is_duplicateline':is_duplicateline})
+    data_frame = pd.DataFrame({'english_sentence1':english_sentence1, 'english_sentence2':english_sentence2, 'spanish_sentence1':spanish_sentence1, 'spanish_sentence2':spanish_sentence2, 'is_duplicateline':is_duplicateline})
     data_frame.to_csv(save_pt,index=False,encoding='UTF-8')
 
 
@@ -151,5 +152,5 @@ if __name__ == '__main__':
     config.read(config_fp)
     original_english_pt = '%s/%s' % (config.get('DIRECTORY', 'origin_spanish_pt'),config.get('FILE_NAME', 'cikm_english_train_20180516_txt'))
     original_spanish_pt = '%s/%s' % (config.get('DIRECTORY', 'origin_spanish_pt'),config.get('FILE_NAME', 'cikm_spanish_train_20180516_txt'))
-    save_pt = '%s/%s' % (config.get('DIRECTORY', 'csv_spanish_pt'),config.get('FILE_NAME', 'cikm_english_and_spanish_train_20180516_csv'))
+    save_pt = '%s/%s' % (config.get('DIRECTORY', 'csv_spanish_pt'),config.get('FILE_NAME', 'cikm_english_and_spanish_train_20180516_noid_csv'))
     txtToCsvTrainEnglishandSpanishVersion(original_english_pt, original_spanish_pt, save_pt)
