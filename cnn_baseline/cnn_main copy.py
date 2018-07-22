@@ -60,11 +60,18 @@ texts_2 = list(train['spa_qura2_list'])
 test_texts_1 = list(test['spa_qura1_list'])
 test_texts_2 = list(test['spa_qura2_list'])
 
+# 将cnn预测的结果拿到traditional model里面去训练
+pred_data1 = texts_1 + test_texts_1
+pred_data2 = texts_2 + test_texts_2
+
 # 得到词索引,相当于把每个sentence给序列化
 sequences_1 = tokenizer.texts_to_sequences(texts_1)
 sequences_2 = tokenizer.texts_to_sequences(texts_2)
 test_sequences_1 = tokenizer.texts_to_sequences(test_texts_1)
 test_sequences_2 = tokenizer.texts_to_sequences(test_texts_2)
+
+pred_data1 = tokenizer.texts_to_sequences(pred_data1)
+pred_data2 = tokenizer.texts_to_sequences(pred_data2)
 
 # number of unique words
 word_index = tokenizer.word_index
@@ -76,6 +83,9 @@ data_2 = pad_sequences(sequences_2, maxlen=MAX_SEQUENCE_LENGTH)
 
 test_data_1 = pad_sequences(test_sequences_1, maxlen=MAX_SEQUENCE_LENGTH)
 test_data_2 = pad_sequences(test_sequences_2, maxlen=MAX_SEQUENCE_LENGTH)
+
+pred_data1 = pad_sequences(pred_data1, maxlen = MAX_SEQUENCE_LENGTH)
+pred_data2 = pad_sequences(pred_data2, maxlen = MAX_SEQUENCE_LENGTH)
 
 print('Preparing embedding matrix')
 nb_words = min(MAX_NB_WORDS, len(word_index)) + 1
@@ -89,11 +99,10 @@ for word, i in word_index.items():
 print('Null word embeddings: %d' % np.sum(np.sum(embedding_matrix, axis=1) == 0))
 
 label = np.array(list(train.label))
-#folds = KFold(n_splits = 5, shuffle = True, random_state = 123)
+folds = KFold(n_splits = 5, shuffle = True, random_state = 123)
 pred_results = []
-#re_weight = True
+re_weight = True
 val_loss_result = []
-train_pred_results = []
 for idx_train, idx_val in folds.split(data_1):
     data_1_train = data_1[idx_train]
     data_2_train = data_2[idx_train]
@@ -120,20 +129,16 @@ for idx_train, idx_val in folds.split(data_1):
     bst_val_score = min(hist.history['val_loss'])
     val_loss_result.append(bst_val_score)
     #model.load_weights("weights-improvement.hdf5")
-    preds = model.predict([test_data_1, test_data_2], batch_size = 2048, verbose = 2)
-    train_preds = model.predict([data_1_val, data_2_val], batch_size = 2048, verbose = 2)
-
+    #preds = model.predict([test_data_1, test_data_2], batch_size=2048, verbose=2)
+    preds = model.predict([pred_data1, pred_data2], batch_size=2048, verbose=2)
     pred_results.append(preds)
-    train_pred_results.extend(train_preds)
 
 
 print (np.mean(val_loss_result))
 res = (pred_results[0] + pred_results[1] + pred_results[2] +
      pred_results[3] + pred_results[4]) / 5
 print (np.mean(pred_results))
-train_pred_results.extend(res)
-
-train_pred_results = pd.DataFrame(train_pred_results)
+res = pd.DataFrame(res)
 #test['pred'] = res
 #test[['pred']].to_csv('cnnresult.txt', index = None, header = None)
-train_pred_results.to_csv('cnnresult.dat',index = None)
+res.to_csv('cnnresult.dat',index = None,header = 'cnnresult')
