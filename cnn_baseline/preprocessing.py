@@ -3,15 +3,15 @@ import re
 from nltk.stem import SnowballStemmer
 import pickle
 
-train_e2s = 'cikm_english_train_20180516.txt'
-train_s2e = 'cikm_spanish_train_20180516.txt'
-testxt = 'cikm_test_a_20180516.txt'
+train_e2s = '../diff_traditional/source_data/cikm_english_train_20180516.txt'
+train_s2e = '../diff_traditional/source_data/cikm_spanish_train_20180516.txt'
+testxt = '../diff_traditional/source_data/cikm_test_a_20180516.txt'
 
 _stemmer = SnowballStemmer('spanish')
 
 # remove punctuation
 def removePunctuation(row):
-	r = '[!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+'
+	r = '[!"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~¿¡]+'
 	line = re.sub(r,'',row)
 	return line
 
