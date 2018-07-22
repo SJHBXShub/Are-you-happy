@@ -13,9 +13,13 @@ import math
 import tensorflow as tf
 from keras.callbacks import ModelCheckpoint
 
-class CNN(object):
+#这个cnn类似于siamese模型，把两个句子分别通过同一个cnn模型得到句子的representation，然后
+#计算representation的相似度，可以直接使用距离公式来计算，也可以把两个representation合并后用
+#2层全连接来计算最后的match socre，本次方法用的后者
+
+class CNN:
     @staticmethod
-    def build_model(self,emb_matrix, max_sequence_length):
+    def build_model(emb_matrix, max_sequence_length):
         
         # The embedding layer containing the word vectors
         emb_layer = Embedding(
