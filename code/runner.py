@@ -297,6 +297,7 @@ class CrossValidation(Runner):
         offline_valid_preds_all = [0.] * offline_features.shape[0]
         offline_test_preds_all = [0.] * offline_features.shape[0]
         for fold_id in range(self.cv_num):
+            print("cv ", fold_id)
             LogUtil.log('INFO', 'cross validation fold_id(%d) begin' % fold_id)
 
             # generate training data set
@@ -379,6 +380,7 @@ class CrossValidation(Runner):
             offline_test_score = Evaluator.evaluate(self.config.get('MODEL', 'evaluator_name'),
                                                     offline_test_labels,
                                                     offline_test_preds)
+            print("score", offline_valid_score)
             score_fp = '%s/%s.score' % (self.config.get('DIRECTORY', 'score_pt'), 'cv')
             score_file = open(score_fp, 'a')
             score_file.write('fold:%d\ttrain:%s\tvalid:%s\ttest:%s\n' % (fold_id,

@@ -116,16 +116,16 @@ if __name__ == '__main__':
     config_fp = '../conf/featwheel.conf'
     config = ConfigParser.ConfigParser()
     config.read(config_fp)
-    path_train_data = '%s/%s' % (config.get('DIRECTORY', 'csv_spanish_cleaning_pt1'), 'preprocessing_train_merge.csv')
-    path_test_data = '%s/%s' % (config.get('DIRECTORY', 'csv_spanish_cleaning_pt1'), 'preprocessing_test.csv')
+    path_train_data = '%s/%s' % (config.get('DIRECTORY', 'csv_spanish_cleaning_ptO'), 'preprocessing_train_merge.csv')
+    path_test_data = '%s/%s' % (config.get('DIRECTORY', 'csv_spanish_cleaning_ptO'), 'preprocessing_test.csv')
     path_word2vec = '%s/%s' % (config.get('DIRECTORY', 'source_pt'), config.get('FILE_NAME', 'wiki_es_vec'))
     path_save_word = './embed_glove_d300_norm_word'
     path_word_dic = './word_dict.txt'
     path_save_index = './embed_glove_d300_norm'
-    path_word2vec = './embed_glove_d300_norm_word'
-    #small_word2vec_dict = Word2Vec.getSmallWord2Vec(path_word2vec,path_train_data,path_test_data)
-    #Word2Vec.saveSmallWord2Vec(path_save_word,small_word2vec_dict)
-    Word2Vec.changeWord2index(path_word2vec=path_word2vec, path_word_dic = path_word_dic, path_save = path_save_index)
+    #path_word2vec = './embed_glove_d300_norm_word'
+    small_word2vec_dict = Word2Vec.getSmallWord2Vec(path_word2vec,path_train_data,path_test_data)
+    Word2Vec.saveSmallWord2Vec(path_save_word,small_word2vec_dict)
+    #Word2Vec.changeWord2index(path_word2vec=path_word2vec, path_word_dic = path_word_dic, path_save = path_save_index)
     print("I am OK")
 
 

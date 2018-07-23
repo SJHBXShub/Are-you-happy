@@ -29,7 +29,7 @@ class PostProcessor(object):
         print(PostProcessor.getResultMean(online_preds))
         for index in range(len(online_preds)):
             score = online_preds[index]
-            score = PostProcessor.adj(score, te=0.5, tr=0.25)
+            score = PostProcessor.adj(score, te=0.35, tr=0.25)
             online_preds[index] = score
         print(PostProcessor.getResultMean(online_preds))
         DataUtil.save_vector(online_preds_fp + '.rescale', online_preds, 'w')

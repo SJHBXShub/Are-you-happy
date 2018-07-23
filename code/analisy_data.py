@@ -699,8 +699,8 @@ if __name__ == '__main__':
         config = ConfigParser.ConfigParser()
         config.read(config_fp)
         save_pt = '%s' % config.get('DIRECTORY','feature_pt')
-        MyUtil.getPredictFeature('train','RandomForest.dat',save_pt)
-        MyUtil.getPredictFeature('test','RandomForest.dat',save_pt)
+        MyUtil.getPredictFeature('train','CNN2.dat',save_pt)
+        MyUtil.getPredictFeature('test','CNN2.dat',save_pt)
 
     if 'graph' in Task_Porpose:
         grapg_result = Graph(config_fp).buildGraph()
