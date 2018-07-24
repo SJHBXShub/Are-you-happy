@@ -9,5 +9,5 @@ c.append(a)
 
 df4 = pd.DataFrame({'col1':[1,3],'col2':[2,4]},index=['a','b'])
 s = 'a'
-print(eval(s))
+print(np.sum(b))
 #print(b.mean(1))

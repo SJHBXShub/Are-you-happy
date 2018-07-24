@@ -1,0 +1,6 @@
+运行GBDT说明
+1. 运行degub.py，gbdt开始运行
+2. debug里面有CrossValidation 和 SingleExec。 CrossValidation是进行交叉验证。一般在选择参数时 直接选SingleExec就行
+3.如何调GBDT的参数：在conf下有一个featwheel.conf文件。全部的参数都在这里面调节。[GBDT]下调节模型参数 feature_selected选择用哪些feature。注意feature_selected_num_analysis必须要保证feature_selected保持一致。feature_selected_num_analysis时统计一个feature内有几个参数。
+4.runner.py时文件的具体模型的实现。即SingleExec和CrossValidation的具体实现
+5.model里面时具体模型的实现
